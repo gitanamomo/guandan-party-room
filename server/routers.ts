@@ -94,6 +94,18 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    submitTribute: publicProcedure
+      .input(z.object({ roomId: z.number(), seatIndex: z.number(), card: z.string() }))
+      .mutation(async ({ input }) => {
+        return db.submitTribute(input.roomId, input.seatIndex, input.card);
+      }),
+
+    submitReturnCard: publicProcedure
+      .input(z.object({ roomId: z.number(), seatIndex: z.number(), card: z.string() }))
+      .mutation(async ({ input }) => {
+        return db.submitReturnCard(input.roomId, input.seatIndex, input.card);
+      }),
+
     callAiToFill: publicProcedure
       .input(z.object({ roomId: z.number(), seatIndex: z.number() }))
       .mutation(async ({ input }) => {
@@ -199,7 +211,7 @@ export const appRouter = router({
           activeSeat: nextSeat,
           lastPlay: newPlayRecord,
           winningOrder,
-          status: winningOrder.length >= 3 ? "settled" : "playing",
+          status: winningOrder.length >= 3 ? "tribute" : "playing",
         }).where(eq(rooms.id, input.roomId));
 
         await database.insert(roomLogs).values({
@@ -208,6 +220,10 @@ export const appRouter = router({
           message: playDesc,
           type: "play",
         });
+
+        if (winningOrder.length >= 3) {
+          await db.settleRound(input.roomId, winningOrder);
+        }
 
         const nextSeatObj = allSeats[nextSeat];
         if (nextSeatObj && nextSeatObj.isAi && winningOrder.length < 3) {
