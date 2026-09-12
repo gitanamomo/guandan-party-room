@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import * as db from "./db";
 import { analyzePlay, canBeat, HandAnalysis } from "../shared/guandan";
 import { and, eq } from "drizzle-orm";
@@ -81,7 +82,7 @@ export const appRouter = router({
       }),
 
     startGame: publicProcedure
-      .input(z.object({ roomId: z.number(), hostUserId: z.number().optional() }))
+      .input(z.object({ roomId: z.number(), hostToken: z.string().min(32).optional() }))
       .mutation(async ({ ctx, input }) => {
         const database = await db.getDb();
         if (!database) throw new Error("Database offline");
@@ -89,8 +90,15 @@ export const appRouter = router({
         const room = await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1);
         if (!room[0]) throw new Error("房间不存在");
 
-        const currentUserId = ctx.user?.id || input.hostUserId || room[0].hostUserId;
-        await db.startRoomGame(input.roomId, currentUserId);
+        if (ctx.user) {
+          if (ctx.user.id !== room[0].hostUserId) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "只有房主主账户可以开启对局" });
+          }
+        } else if (!input.hostToken || input.hostToken !== room[0].hostControlToken) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "缺少有效的房主控制凭证，请从房主设备开局" });
+        }
+
+        await db.startRoomGame(input.roomId, room[0].hostUserId);
         return { success: true };
       }),
 

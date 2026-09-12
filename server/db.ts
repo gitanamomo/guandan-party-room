@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { randomBytes } from "node:crypto";
 import { InsertRoom, InsertRoomLog, InsertRoomSeat, InsertUser, Room, roomLogs, roomRounds, RoomSeat, roomSeats, rooms, users, TributeState } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { createGuandanDeck, getRankBaseValue, parseCard, shuffleAndDeal, sortCards } from "../shared/guandan";
@@ -59,11 +60,13 @@ export async function createRoom(params: {
 
   const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
   const inviteToken = "gd_" + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+  const hostControlToken = randomBytes(32).toString("hex");
 
   const [insertResult] = await db.insert(rooms).values({
     roomCode,
     title: params.title || `${params.hostName}的掼蛋雅间`,
     hostUserId: params.hostUserId,
+    hostControlToken,
     hostName: params.hostName,
     targetScore: params.targetScore || 14,
     currentLevel: "2",
@@ -160,7 +163,7 @@ export async function createRoom(params: {
     type: "system",
   });
 
-  return { roomId, roomCode, inviteToken };
+  return { roomId, roomCode, inviteToken, hostControlToken };
 }
 
 // 获取房间全量状态
@@ -174,9 +177,10 @@ export async function getRoomDetails(roomId: number) {
   const seatRows = await db.select().from(roomSeats).where(eq(roomSeats.roomId, roomId)).orderBy(roomSeats.seatIndex);
   const logRows = await db.select().from(roomLogs).where(eq(roomLogs.roomId, roomId)).orderBy(desc(roomLogs.createdAt)).limit(30);
   const roundRows = await db.select().from(roomRounds).where(eq(roomRounds.roomId, roomId)).orderBy(desc(roomRounds.roundNumber));
+  const { hostControlToken: _hostControlToken, ...safeRoom } = roomRows[0];
 
   return {
-    room: roomRows[0],
+    room: safeRoom,
     seats: seatRows,
     logs: logRows.reverse(),
     rounds: roundRows,
@@ -319,18 +323,11 @@ export async function startRoomGame(roomId: number, hostUserId: number) {
     }
   }
 
-  // 洗牌发牌
-  const deck = createGuandanDeck();
-  const hands = shuffleAndDeal(deck);
-
-  for (let i = 0; i < 4; i++) {
-    const sorted = sortCards(hands[i], room[0].currentLevel);
-    await db.update(roomSeats).set({
-      handCards: sorted,
-      handCount: sorted.length,
-      rankFinish: 0,
-      isReady: true,
-    }).where(eq(roomSeats.id, seats[i].id));
+  // 首局或旧数据没有预发牌时才洗牌；正常多局流程在结算时已准备好下一局手牌，
+  // 这样进贡与还牌发生在下一局的真实27张手牌上。
+  const hasPreparedHands = room[0].status === "tribute" && seats.every((seat) => seat.handCount === 27);
+  if (!hasPreparedHands) {
+    await dealNextRoundHands(db, seats, room[0].currentLevel);
   }
 
   await db.update(rooms).set({
@@ -351,11 +348,22 @@ export async function startRoomGame(roomId: number, hostUserId: number) {
 }
 
 function highestCard(cards: string[], levelRank: string) {
-  return [...cards].sort((a, b) => {
-    const aCard = parseCard(a, levelRank);
-    const bCard = parseCard(b, levelRank);
-    return getRankBaseValue(bCard.rank, levelRank) - getRankBaseValue(aCard.rank, levelRank);
-  })[0];
+  // 与前端理牌保持同一规则：红心级牌（逢人配）优先于普通级牌，
+  // 再按级牌、大小王和普通点数排序，避免界面显示的最大牌被服务端拒绝。
+  return sortCards(cards, levelRank)[0];
+}
+
+async function dealNextRoundHands(database: NonNullable<Awaited<ReturnType<typeof getDb>>>, seats: RoomSeat[], levelRank: string) {
+  const hands = shuffleAndDeal(createGuandanDeck());
+  for (let i = 0; i < seats.length; i++) {
+    const sorted = sortCards(hands[i] || [], levelRank);
+    await database.update(roomSeats).set({
+      handCards: sorted,
+      handCount: sorted.length,
+      rankFinish: 0,
+      isReady: true,
+    }).where(eq(roomSeats.id, seats[i].id));
+  }
 }
 
 /** 本局三人出完后生成战绩，并把房间切换到进贡/还牌阶段。 */
@@ -393,13 +401,14 @@ export async function settleRound(roomId: number, winningOrder: number[]) {
   const tributeInfo: TributeState = needsTribute
     ? { phase: "tribute", levelBefore: room.currentLevel, payerSeat: lastSeat.seatIndex, receiverSeat: winnerSeat.seatIndex, antiTribute: false }
     : { phase: "complete", levelBefore: room.currentLevel, antiTribute };
+  const fullWinningOrder = [...winningOrder, lastSeat.seatIndex];
 
   await database.insert(roomRounds).values({
     roomId,
     roundNumber: room.roundNumber,
     levelBefore: room.currentLevel,
     levelAfter: nextLevel,
-    winningOrder,
+    winningOrder: fullWinningOrder,
     winnerTeam,
     redPoints,
     bluePoints,
@@ -412,6 +421,10 @@ export async function settleRound(roomId: number, winningOrder: number[]) {
     teamScores: nextScores,
     tributeInfo,
   }).where(eq(rooms.id, roomId));
+
+  if (canAdvance) {
+    await dealNextRoundHands(database, seats, nextLevel);
+  }
 
   await database.insert(roomLogs).values({
     roomId,
@@ -431,10 +444,14 @@ export async function submitTribute(roomId: number, seatIndex: number, card: str
   if (!room || room.status !== "tribute" || !info || info.phase !== "tribute" || info.payerSeat !== seatIndex) throw new Error("还没轮到您进贡");
   const seat = (await database.select().from(roomSeats).where(and(eq(roomSeats.roomId, roomId), eq(roomSeats.seatIndex, seatIndex))).limit(1))[0];
   if (!seat) throw new Error("席位不存在");
+  const receiver = info.receiverSeat === undefined ? undefined : (await database.select().from(roomSeats).where(and(eq(roomSeats.roomId, roomId), eq(roomSeats.seatIndex, info.receiverSeat))).limit(1))[0];
+  if (!receiver) throw new Error("头游席位不存在");
   const hand = (seat.handCards as string[]) || [];
   if (!hand.includes(card)) throw new Error("这张牌不在您的手牌中");
   if (highestCard(hand, info.levelBefore || room.currentLevel) !== card) throw new Error("进贡必须选择当前手牌中的最大牌");
   await database.update(roomSeats).set({ handCards: hand.filter((item) => item !== card), handCount: hand.length - 1 }).where(eq(roomSeats.id, seat.id));
+  const receiverHand = (receiver.handCards as string[]) || [];
+  await database.update(roomSeats).set({ handCards: [...receiverHand, card], handCount: receiverHand.length + 1 }).where(eq(roomSeats.id, receiver.id));
   const nextInfo: TributeState = { ...info, phase: "return", tributeCard: card };
   await database.update(rooms).set({ tributeInfo: nextInfo }).where(eq(rooms.id, roomId));
   await database.insert(roomLogs).values({ roomId, senderName: seat.displayName, message: `【${seat.displayName}】已进贡最大牌，请头游还牌。`, type: "tribute" });
@@ -458,6 +475,7 @@ export async function submitReturnCard(roomId: number, seatIndex: number, card: 
   await database.update(roomSeats).set({ handCards: [...payerHand, card], handCount: payerHand.length + 1 }).where(eq(roomSeats.id, payer.id));
   const nextInfo: TributeState = { ...info, phase: "complete", returnCard: card };
   await database.update(rooms).set({ tributeInfo: nextInfo }).where(eq(rooms.id, roomId));
+  await database.update(roomRounds).set({ tributeSummary: nextInfo }).where(and(eq(roomRounds.roomId, roomId), eq(roomRounds.roundNumber, room.roundNumber)));
   await database.insert(roomLogs).values({ roomId, senderName: receiver.displayName, message: `【${receiver.displayName}】完成还牌，下一局可以开打！`, type: "tribute" });
   return nextInfo;
 }

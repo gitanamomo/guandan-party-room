@@ -518,7 +518,10 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
           {isHost && room.status === "waiting" && (
             <Button
               size="sm"
-              onClick={() => startMutation.mutate({ roomId: room.id, hostUserId: room.hostUserId })}
+              onClick={() => startMutation.mutate({
+                roomId: room.id,
+                hostToken: localStorage.getItem(`gd_host_token_${room.roomCode}`) || undefined,
+              })}
               disabled={startMutation.isPending}
               className="rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold text-xs h-8 px-3 shadow-md flex items-center gap-1.5"
             >
@@ -530,7 +533,10 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
           {isHost && room.status === "tribute" && (room.tributeInfo as any)?.phase === "complete" && (
             <Button
               size="sm"
-              onClick={() => startMutation.mutate({ roomId: room.id, hostUserId: room.hostUserId })}
+              onClick={() => startMutation.mutate({
+                roomId: room.id,
+                hostToken: localStorage.getItem(`gd_host_token_${room.roomCode}`) || undefined,
+              })}
               disabled={startMutation.isPending}
               className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-bold text-xs h-8 px-3 shadow-md flex items-center gap-1.5"
             >
@@ -967,7 +973,7 @@ function TributePanel({ room, mySeat, seats, onTribute, onReturn, onPlayVoice }:
   const info = room.tributeInfo as { phase?: string; payerSeat?: number; receiverSeat?: number; tributeCard?: string; antiTribute?: boolean } | null;
   const isPayer = mySeat?.seatIndex === info?.payerSeat;
   const isReceiver = mySeat?.seatIndex === info?.receiverSeat;
-  const sortedHand = ((mySeat?.handCards as string[]) || []).slice(0, 18);
+  const sortedHand = sortCards((mySeat?.handCards as string[]) || [], room.currentLevel);
   return (
     <div className="z-10 w-[min(92vw,430px)] bg-stone-950/90 border border-amber-500/50 rounded-2xl p-4 text-center shadow-2xl backdrop-blur-md">
       <div className="flex items-center justify-center gap-2 text-amber-300 font-bold">

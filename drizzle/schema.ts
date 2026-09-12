@@ -40,6 +40,7 @@ export const rooms = mysqlTable("rooms", {
   roomCode: varchar("roomCode", { length: 16 }).notNull().unique(),
   title: varchar("title", { length: 120 }).notNull(),
   hostUserId: int("hostUserId").notNull(),
+  hostControlToken: varchar("hostControlToken", { length: 96 }).notNull().unique(),
   hostName: varchar("hostName", { length: 64 }).notNull(),
   targetScore: int("targetScore").default(14).notNull(),
   currentLevel: varchar("currentLevel", { length: 8 }).default("2").notNull(),

@@ -23,6 +23,7 @@ export default function LobbyView() {
       localStorage.setItem("gd_nickname", displayName);
       localStorage.setItem("gd_avatar", selectedAvatar);
       localStorage.setItem("gd_guest_id", "guest_" + Math.random().toString(36).substring(2, 9));
+      localStorage.setItem(`gd_host_token_${data.roomCode}`, data.hostControlToken);
       toast.success("房间开辟成功！您是房主，快邀请牌友入座吧！");
       setLocation(`/room/${data.roomCode}`);
     },
