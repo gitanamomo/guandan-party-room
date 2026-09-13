@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { InsertRoom, InsertRoomLog, InsertRoomSeat, InsertUser, Room, roomLogs, roomRounds, RoomSeat, roomSeats, rooms, users, TributeState } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { createGuandanDeck, getRankBaseValue, parseCard, shuffleAndDeal, sortCards } from "../shared/guandan";
@@ -54,6 +55,8 @@ export async function createRoom(params: {
   hostName: string;
   hostAvatarStyle?: string;
   targetScore?: number;
+  password?: string;
+  allowSpectators?: boolean;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database offline");
@@ -68,6 +71,8 @@ export async function createRoom(params: {
     hostUserId: params.hostUserId,
     hostControlToken,
     hostName: params.hostName,
+    passwordHash: params.password ? createHash("sha256").update(params.password).digest("hex") : null,
+    allowSpectators: params.allowSpectators !== false,
     targetScore: params.targetScore || 14,
     currentLevel: "2",
     status: "waiting",
@@ -163,7 +168,58 @@ export async function createRoom(params: {
     type: "system",
   });
 
-  return { roomId, roomCode, inviteToken, hostControlToken };
+  return { roomId, roomCode, inviteToken, hostControlToken, hostGuestId: `host_${params.hostUserId}` };
+}
+
+function hashRoomPassword(password: string) {
+  return createHash("sha256").update(password).digest("hex");
+}
+
+export async function verifyRoomAccess(roomId: number, password?: string, spectate = false, hostToken?: string) {
+  const database = await getDb();
+  if (!database) throw new Error("Database offline");
+  const room = (await database.select().from(rooms).where(eq(rooms.id, roomId)).limit(1))[0];
+  if (!room) throw new Error("房间不存在");
+  if (hostToken && hostToken === room.hostControlToken) return true;
+  if (spectate && !room.allowSpectators) throw new Error("房主已关闭观战权限");
+  if (room.passwordHash && room.passwordHash !== hashRoomPassword(password || "")) throw new Error("房间密码不正确");
+  return true;
+}
+
+export async function updateRoomSettings(roomId: number, settings: { password?: string; clearPassword?: boolean; allowSpectators: boolean }) {
+  const database = await getDb();
+  if (!database) throw new Error("Database offline");
+  const room = (await database.select().from(rooms).where(eq(rooms.id, roomId)).limit(1))[0];
+  if (!room) throw new Error("房间不存在");
+  await database.update(rooms).set({
+    passwordHash: settings.clearPassword ? null : settings.password ? hashRoomPassword(settings.password) : room.passwordHash,
+    allowSpectators: settings.allowSpectators,
+  }).where(eq(rooms.id, roomId));
+  await database.insert(roomLogs).values({ roomId, senderName: "茶馆管家", message: `房间设置已更新：${settings.clearPassword || settings.password ? (settings.clearPassword ? "已取消房间密码" : "已设置房间密码") : "密码保持不变"}，${settings.allowSpectators ? "允许观战" : "禁止观战"}。`, type: "system" });
+  return { success: true };
+}
+
+export async function removeRoomSeat(roomId: number, seatIndex: number) {
+  const database = await getDb();
+  if (!database) throw new Error("Database offline");
+  const seat = (await database.select().from(roomSeats).where(and(eq(roomSeats.roomId, roomId), eq(roomSeats.seatIndex, seatIndex))).limit(1))[0];
+  if (!seat || seat.isHost) throw new Error("不能踢出房主或不存在的席位");
+  await database.update(roomSeats).set({ userId: null, guestId: null, displayName: `${getSeatName(seatIndex)}(已空闲)`, isReady: false, isAi: false, handCards: [], handCount: 0 }).where(eq(roomSeats.id, seat.id));
+  await database.insert(roomLogs).values({ roomId, senderName: "茶馆管家", message: `已将【${seat.displayName}】请出房间。`, type: "system" });
+  return { success: true };
+}
+
+export async function transferRoomHost(roomId: number, targetSeatIndex: number) {
+  const database = await getDb();
+  if (!database) throw new Error("Database offline");
+  const target = (await database.select().from(roomSeats).where(and(eq(roomSeats.roomId, roomId), eq(roomSeats.seatIndex, targetSeatIndex))).limit(1))[0];
+  if (!target || !target.guestId || target.isAi) throw new Error("只能转让给已入座的真实玩家");
+  const newToken = randomBytes(32).toString("hex");
+  await database.update(roomSeats).set({ isHost: false }).where(eq(roomSeats.roomId, roomId));
+  await database.update(roomSeats).set({ isHost: true }).where(eq(roomSeats.id, target.id));
+  await database.update(rooms).set({ hostUserId: target.userId || 10001, hostControlToken: newToken, hostName: target.displayName }).where(eq(rooms.id, roomId));
+  await database.insert(roomLogs).values({ roomId, senderName: "茶馆管家", message: `房主已转让给【${target.displayName}】。`, type: "system" });
+  return { success: true, hostControlToken: newToken, hostSeatIndex: targetSeatIndex, hostGuestId: target.guestId, hostName: target.displayName };
 }
 
 // 获取房间全量状态
@@ -180,7 +236,7 @@ export async function getRoomDetails(roomId: number) {
   const { hostControlToken: _hostControlToken, ...safeRoom } = roomRows[0];
 
   return {
-    room: safeRoom,
+    room: { ...safeRoom, hasPassword: Boolean(roomRows[0].passwordHash) },
     seats: seatRows,
     logs: logRows.reverse(),
     rounds: roundRows,
@@ -207,14 +263,18 @@ export async function joinRoomSeat(params: {
   displayName: string;
   avatarStyle: string;
   preferredSeat?: number;
+  hostToken?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database offline");
 
+  const roomRow = (await db.select().from(rooms).where(eq(rooms.id, params.roomId)).limit(1))[0];
+  const validHostToken = Boolean(roomRow && params.hostToken && params.hostToken === roomRow.hostControlToken);
   const seats = await db.select().from(roomSeats).where(eq(roomSeats.roomId, params.roomId)).orderBy(roomSeats.seatIndex);
   
   // 检查是否已经在席位上（通过唯一的guestId定位）
   const existing = seats.find((s) => s.guestId === params.guestId);
+  const hostSeat = seats.find((s) => s.isHost && (validHostToken || (params.userId && s.userId === params.userId) || params.guestId === `host_${s.userId}`));
 
   const avatar = DEFAULT_AVATARS.find((a) => a.style === params.avatarStyle) || DEFAULT_AVATARS[1];
 
@@ -228,6 +288,16 @@ export async function joinRoomSeat(params: {
     }).where(eq(roomSeats.id, existing.id));
 
     return { seatIndex: existing.seatIndex };
+  }
+
+  if (hostSeat) {
+    await db.update(roomSeats).set({
+      displayName: params.displayName,
+      avatarStyle: avatar.style,
+      avatarUrl: avatar.url,
+      lastSeenAt: new Date(),
+    }).where(eq(roomSeats.id, hostSeat.id));
+    return { seatIndex: hostSeat.seatIndex };
   }
 
   // 寻找空席位（优先选指定，或第一个未占用的1, 2, 3）

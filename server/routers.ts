@@ -32,6 +32,8 @@ export const appRouter = router({
           displayName: z.string().min(1, "名字不能为空").max(20, "昵称过长"),
           avatarStyle: z.string().default("panda"),
           targetScore: z.number().default(14),
+          password: z.string().max(32).optional(),
+          allowSpectators: z.boolean().default(true),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -42,21 +44,30 @@ export const appRouter = router({
           hostName: input.displayName,
           hostAvatarStyle: input.avatarStyle,
           targetScore: input.targetScore,
+          password: input.password,
+          allowSpectators: input.allowSpectators,
         });
         return result;
       }),
 
     getByCodeOrToken: publicProcedure
-      .input(z.object({ key: z.string() }))
-      .query(async ({ input }) => {
+      .input(z.object({ key: z.string(), password: z.string().optional(), spectate: z.boolean().optional(), hostToken: z.string().optional() }))
+      .query(async ({ ctx, input }) => {
         const room = await db.findRoomByCodeOrToken(input.key);
         if (!room) return null;
+        if (ctx.user?.id !== room.hostUserId) {
+          await db.verifyRoomAccess(room.id, input.password, input.spectate === true, input.hostToken);
+        }
         return db.getRoomDetails(room.id);
       }),
 
     getDetail: publicProcedure
-      .input(z.object({ roomId: z.number() }))
-      .query(async ({ input }) => {
+      .input(z.object({ roomId: z.number(), password: z.string().optional(), spectate: z.boolean().optional(), hostToken: z.string().optional() }))
+      .query(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        const room = database ? (await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1))[0] : undefined;
+        if (!room) return null;
+        if (ctx.user?.id !== room.hostUserId) await db.verifyRoomAccess(room.id, input.password, input.spectate === true, input.hostToken);
         return db.getRoomDetails(input.roomId);
       }),
 
@@ -68,9 +79,12 @@ export const appRouter = router({
           displayName: z.string().min(1, "名字不能为空").max(20, "昵称过长"),
           avatarStyle: z.string().default("tiger"),
           preferredSeat: z.number().min(0).max(3).optional(),
+          password: z.string().optional(),
+          hostToken: z.string().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
+        await db.verifyRoomAccess(input.roomId, input.password, false, input.hostToken);
         return db.joinRoomSeat({
           roomId: input.roomId,
           userId: ctx.user?.id,
@@ -78,7 +92,35 @@ export const appRouter = router({
           displayName: input.displayName,
           avatarStyle: input.avatarStyle,
           preferredSeat: input.preferredSeat,
+          hostToken: input.hostToken,
         });
+      }),
+
+    updateSettings: publicProcedure
+      .input(z.object({ roomId: z.number(), hostToken: z.string().optional(), password: z.string().max(32).optional(), clearPassword: z.boolean().optional(), allowSpectators: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        const room = database ? (await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1))[0] : undefined;
+        if (!room || (ctx.user?.id !== room.hostUserId && input.hostToken !== room.hostControlToken)) throw new TRPCError({ code: "FORBIDDEN", message: "只有房主可以修改房间设置" });
+        return db.updateRoomSettings(input.roomId, { password: input.password, clearPassword: input.clearPassword, allowSpectators: input.allowSpectators });
+      }),
+
+    kickSeat: publicProcedure
+      .input(z.object({ roomId: z.number(), hostToken: z.string().optional(), seatIndex: z.number().min(1).max(3) }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        const room = database ? (await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1))[0] : undefined;
+        if (!room || (ctx.user?.id !== room.hostUserId && input.hostToken !== room.hostControlToken)) throw new TRPCError({ code: "FORBIDDEN", message: "只有房主可以请离牌友" });
+        return db.removeRoomSeat(input.roomId, input.seatIndex);
+      }),
+
+    transferHost: publicProcedure
+      .input(z.object({ roomId: z.number(), hostToken: z.string().optional(), targetSeatIndex: z.number().min(1).max(3) }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        const room = database ? (await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1))[0] : undefined;
+        if (!room || (ctx.user?.id !== room.hostUserId && input.hostToken !== room.hostControlToken)) throw new TRPCError({ code: "FORBIDDEN", message: "只有房主可以转让房主" });
+        return db.transferRoomHost(input.roomId, input.targetSeatIndex);
       }),
 
     startGame: publicProcedure
@@ -115,8 +157,11 @@ export const appRouter = router({
       }),
 
     callAiToFill: publicProcedure
-      .input(z.object({ roomId: z.number(), seatIndex: z.number() }))
-      .mutation(async ({ input }) => {
+      .input(z.object({ roomId: z.number(), seatIndex: z.number(), hostToken: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        const room = database ? (await database.select().from(rooms).where(eq(rooms.id, input.roomId)).limit(1))[0] : undefined;
+        if (!room || (ctx.user?.id !== room.hostUserId && input.hostToken !== room.hostControlToken)) throw new TRPCError({ code: "FORBIDDEN", message: "只有房主可以召唤AI补位" });
         await db.fillSeatWithAi(input.roomId, input.seatIndex);
         return { success: true };
       }),

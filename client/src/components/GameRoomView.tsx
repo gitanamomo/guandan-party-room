@@ -25,6 +25,9 @@ import {
   VolumeX,
   Trophy,
   ScrollText,
+  Settings,
+  UserX,
+  ShieldCheck,
 } from "lucide-react";
 import { analyzePlay, parseCard, sortCards } from "../../../shared/guandan";
 import { useLocation } from "wouter";
@@ -159,17 +162,38 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showPosterModal, setShowPosterModal] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [roomPassword, setRoomPassword] = useState(() => sessionStorage.getItem(`gd_room_password_${roomCodeOrToken}`) || "");
+  const [managePassword, setManagePassword] = useState("");
+  const [clearRoomPassword, setClearRoomPassword] = useState(false);
+  const [allowSpectatorsSetting, setAllowSpectatorsSetting] = useState(true);
   const [posterUrl, setPosterUrl] = useState("");
   const [dialect, setDialect] = useState<"huaian" | "nanjing">(() => (localStorage.getItem("gd_dialect") as "huaian" | "nanjing") || "huaian");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("gd_sound") !== "off");
   const [musicOn, setMusicOn] = useState(() => localStorage.getItem("gd_music") !== "off");
+  const [hostToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("hostToken");
+    if (fromUrl) {
+      localStorage.setItem(`gd_host_token_${roomCodeOrToken}`, fromUrl);
+      return fromUrl;
+    }
+    return localStorage.getItem(`gd_host_token_${roomCodeOrToken}`) || "";
+  });
+  const [isSpectator] = useState(() => new URLSearchParams(window.location.search).has("view"));
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const voiceRef = useRef<HTMLAudioElement | null>(null);
   const lastVoiceTimestampRef = useRef(0);
 
   const utils = trpc.useUtils();
+  const roomQueryInput = useMemo(() => ({
+    key: roomCodeOrToken,
+    password: roomPassword || undefined,
+    spectate: isSpectator,
+    hostToken: hostToken || undefined,
+  }), [roomCodeOrToken, roomPassword, isSpectator, hostToken]);
   const roomQuery = trpc.room.getByCodeOrToken.useQuery(
-    { key: roomCodeOrToken },
+    roomQueryInput,
     { refetchInterval: 1500 }
   );
 
@@ -180,13 +204,22 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const rounds = (roomData?.rounds || []) as RoundSummary[];
   const scores = (room?.teamScores as { red: number; blue: number } | undefined) || { red: 0, blue: 0 };
 
+  const effectiveGuestId = useMemo(() => {
+    if (hostToken && room?.hostUserId && !seats.some((seat) => seat.guestId === guestId)) return `host_${room.hostUserId}`;
+    return guestId;
+  }, [guestId, hostToken, room?.hostUserId, seats]);
+
   const mySeat = useMemo(() => {
     if (!seats.length) return null;
-    return seats.find((s) => s.guestId === guestId) || null;
-  }, [seats, guestId]);
+    return seats.find((s) => s.guestId === effectiveGuestId) || null;
+  }, [seats, effectiveGuestId]);
 
   const isHost = mySeat?.isHost || false;
   const mySeatIndex = mySeat ? mySeat.seatIndex : 0;
+
+  useEffect(() => {
+    if (room) setAllowSpectatorsSetting(room.allowSpectators !== false);
+  }, [room?.id, room?.allowSpectators]);
 
   const playAudio = (src: string) => {
     if (!soundOn) return;
@@ -248,6 +281,38 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
     onError: (err) => {
       toast.error(err.message || "入座失败");
     },
+  });
+
+  const settingsMutation = trpc.room.updateSettings.useMutation({
+    onSuccess: () => {
+      toast.success("房间安全设置已更新");
+      if (managePassword.trim()) sessionStorage.setItem(`gd_room_password_${roomCodeOrToken}`, managePassword.trim());
+      setManagePassword("");
+      setClearRoomPassword(false);
+      utils.room.getByCodeOrToken.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "设置更新失败"),
+  });
+
+  const kickMutation = trpc.room.kickSeat.useMutation({
+    onSuccess: () => {
+      toast.success("牌友已请离房间");
+      utils.room.getByCodeOrToken.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "请离失败"),
+  });
+
+  const transferMutation = trpc.room.transferHost.useMutation({
+    onSuccess: (data) => {
+      if (room) {
+        const handoffUrl = `${window.location.origin}/room/${room.inviteToken}?guest=${data.hostGuestId}&hostToken=${data.hostControlToken}`;
+        navigator.clipboard.writeText(`【掼蛋小院房主交接】${data.hostName}请打开此链接接管房主权限：${handoffUrl}`).catch(() => undefined);
+        localStorage.removeItem(`gd_host_token_${room.roomCode}`);
+      }
+      toast.success("房主已转让，接管链接已复制给您转发");
+      setShowManageModal(false);
+    },
+    onError: (err) => toast.error(err.message || "房主转让失败"),
   });
 
   const startMutation = trpc.room.startGame.useMutation({
@@ -424,13 +489,29 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   }
 
   if (!room) {
+    const accessDenied = roomQuery.error?.message?.includes("密码") || roomQuery.error?.message?.includes("观战");
     return (
       <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center text-amber-200 p-4">
-        <h2 className="text-2xl font-bold mb-2">未找到该牌桌</h2>
-        <p className="text-stone-400 mb-6">房间可能已解散或邀请链接已失效</p>
-        <Button onClick={() => setLocation("/")} className="bg-amber-600 text-stone-950">
-          返回茶馆大厅
-        </Button>
+        {accessDenied ? (
+          <div className="w-full max-w-md rounded-3xl border border-amber-700/50 bg-stone-900/90 p-6 shadow-2xl text-center">
+            <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-amber-400" />
+            <h2 className="text-2xl font-bold mb-2">进入掼蛋雅间</h2>
+            <p className="text-stone-400 mb-5 text-sm">{roomQuery.error?.message?.includes("观战") ? "房主暂未开放观战权限" : "请输入房主分享的房间密码"}</p>
+            {!roomQuery.error?.message?.includes("观战") && (
+              <div className="flex gap-2 mb-3">
+                <Input value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} type="password" placeholder="房间密码" className="bg-stone-950 border-amber-800 text-amber-100 rounded-xl" />
+                <Button onClick={() => { sessionStorage.setItem(`gd_room_password_${roomCodeOrToken}`, roomPassword); roomQuery.refetch(); }} className="bg-amber-600 text-stone-950">进入</Button>
+              </div>
+            )}
+            <Button variant="outline" onClick={() => setLocation("/")} className="border-amber-800 text-amber-200">返回茶馆大厅</Button>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-2xl font-bold mb-2">未找到该牌桌</h2>
+            <p className="text-stone-400 mb-6">房间可能已解散或邀请链接已失效</p>
+            <Button onClick={() => setLocation("/")} className="bg-amber-600 text-stone-950">返回茶馆大厅</Button>
+          </>
+        )}
       </div>
     );
   }
@@ -514,13 +595,24 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
             <Share2 className="w-3.5 h-3.5 text-amber-400" />
             <span>复制邀请链接</span>
           </Button>
+          {isHost && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowManageModal(true)}
+              className="rounded-xl bg-stone-900/60 border-amber-700/50 text-amber-200 text-xs h-8 px-3 flex items-center gap-1.5"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              房间管理
+            </Button>
+          )}
 
           {isHost && room.status === "waiting" && (
             <Button
               size="sm"
               onClick={() => startMutation.mutate({
                 roomId: room.id,
-                hostToken: localStorage.getItem(`gd_host_token_${room.roomCode}`) || undefined,
+                hostToken: hostToken || undefined,
               })}
               disabled={startMutation.isPending}
               className="rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-bold text-xs h-8 px-3 shadow-md flex items-center gap-1.5"
@@ -535,7 +627,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
               size="sm"
               onClick={() => startMutation.mutate({
                 roomId: room.id,
-                hostToken: localStorage.getItem(`gd_host_token_${room.roomCode}`) || undefined,
+                hostToken: hostToken || undefined,
               })}
               disabled={startMutation.isPending}
               className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-bold text-xs h-8 px-3 shadow-md flex items-center gap-1.5"
@@ -594,7 +686,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
             seat={seatAtTop}
             position="top"
             isActive={room.activeSeat === seatAtTop?.seatIndex}
-            onCallAi={() => seatAtTop && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtTop.seatIndex })}
+              onCallAi={() => seatAtTop && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtTop.seatIndex, hostToken: hostToken || undefined })}
             canCallAi={isHost && room.status === "waiting" && !seatAtTop?.userId && !seatAtTop?.guestId}
           />
         </div>
@@ -607,7 +699,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
               seat={seatAtLeft}
               position="left"
               isActive={room.activeSeat === seatAtLeft?.seatIndex}
-              onCallAi={() => seatAtLeft && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtLeft.seatIndex })}
+              onCallAi={() => seatAtLeft && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtLeft.seatIndex, hostToken: hostToken || undefined })}
               canCallAi={isHost && room.status === "waiting" && !seatAtLeft?.userId && !seatAtLeft?.guestId}
             />
           </div>
@@ -680,7 +772,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
               seat={seatAtRight}
               position="right"
               isActive={room.activeSeat === seatAtRight?.seatIndex}
-              onCallAi={() => seatAtRight && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtRight.seatIndex })}
+              onCallAi={() => seatAtRight && aiFillMutation.mutate({ roomId: room.id, seatIndex: seatAtRight.seatIndex, hostToken: hostToken || undefined })}
               canCallAi={isHost && room.status === "waiting" && !seatAtRight?.userId && !seatAtRight?.guestId}
             />
           </div>
@@ -849,6 +941,18 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
             </div>
 
             <div>
+              <label className="block text-xs font-medium text-amber-300 mb-1">房间密码（如房主设置）</label>
+              <Input
+                value={roomPassword}
+                onChange={(e) => setRoomPassword(e.target.value)}
+                placeholder="无密码可留空"
+                type="password"
+                maxLength={32}
+                className="bg-stone-950 border-amber-800 text-amber-100 rounded-xl h-11"
+              />
+            </div>
+
+            <div>
               <label className="block text-xs font-medium text-amber-300 mb-2">
                 选择您的萌宠卡通头像（清晰立体，不遮挡）
               </label>
@@ -894,11 +998,14 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
                   }
                   localStorage.setItem("gd_nickname", myNickname.trim());
                   localStorage.setItem("gd_avatar", myAvatar);
+                  if (roomPassword.trim()) sessionStorage.setItem(`gd_room_password_${roomCodeOrToken}`, roomPassword.trim());
                   joinMutation.mutate({
                     roomId: room.id,
                     guestId,
                     displayName: myNickname.trim(),
                     avatarStyle: myAvatar,
+                    password: roomPassword.trim() || undefined,
+                    hostToken: hostToken || undefined,
                   });
                 }}
                 disabled={joinMutation.isPending}
@@ -907,6 +1014,58 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
                 确认入座
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showManageModal && isHost && (
+        <div className="fixed inset-0 z-50 bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-amber-700/50 rounded-3xl p-5 max-w-lg w-full shadow-2xl max-h-[86vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-amber-200 flex items-center gap-2"><Settings className="w-5 h-5 text-amber-400" />房间安全管理</h3>
+              <button type="button" onClick={() => setShowManageModal(false)} className="text-amber-300/70 hover:text-amber-100">关闭</button>
+            </div>
+            <div className="rounded-2xl border border-amber-900/60 bg-stone-950/60 p-4 space-y-3">
+              <div className="text-sm font-semibold text-amber-200">房间访问设置</div>
+              <Input
+                value={managePassword}
+                onChange={(e) => setManagePassword(e.target.value)}
+                placeholder="输入新密码；留空将取消密码"
+                type="password"
+                maxLength={32}
+                className="bg-stone-950 border-amber-800 text-amber-100 rounded-xl"
+              />
+              <label className="flex items-center gap-2 text-xs text-amber-200/80 cursor-pointer">
+                <input type="checkbox" checked={allowSpectatorsSetting} onChange={(e) => setAllowSpectatorsSetting(e.target.checked)} className="accent-amber-500" />
+                <span>允许未入座好友观战</span>
+              </label>
+              <Button
+                onClick={() => settingsMutation.mutate({ roomId: room.id, hostToken: hostToken || undefined, password: managePassword.trim() || undefined, clearPassword: clearRoomPassword, allowSpectators: allowSpectatorsSetting })}
+                disabled={settingsMutation.isPending}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-xl"
+              >
+                保存访问设置
+              </Button>
+              <label className="flex items-center gap-2 text-[11px] text-amber-200/60 cursor-pointer">
+                <input type="checkbox" checked={clearRoomPassword} onChange={(e) => setClearRoomPassword(e.target.checked)} className="accent-amber-500" />
+                <span>取消现有房间密码（不勾选则留空时保持原密码）</span>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-amber-900/60 bg-stone-950/60 p-4 space-y-2">
+              <div className="text-sm font-semibold text-amber-200 flex items-center gap-2"><UserX className="w-4 h-4 text-amber-400" />牌友管理</div>
+              {seats.filter((seat) => seat.guestId && !seat.isHost).map((seat) => (
+                <div key={seat.seatIndex} className="flex items-center justify-between gap-2 rounded-xl bg-stone-900 px-3 py-2 text-xs">
+                  <span className="text-amber-100">{seat.displayName} · {seat.team === 0 ? "红队" : "蓝队"}</span>
+                  <div className="flex gap-1.5">
+                    <Button size="sm" variant="outline" onClick={() => transferMutation.mutate({ roomId: room.id, hostToken: hostToken || undefined, targetSeatIndex: seat.seatIndex })} className="h-7 px-2 border-emerald-700/60 text-emerald-200">转房主</Button>
+                    <Button size="sm" variant="outline" onClick={() => kickMutation.mutate({ roomId: room.id, hostToken: hostToken || undefined, seatIndex: seat.seatIndex })} className="h-7 px-2 border-red-700/60 text-red-200">踢出</Button>
+                  </div>
+                </div>
+              ))}
+              {!seats.some((seat) => seat.guestId && !seat.isHost) && <p className="text-xs text-amber-200/60">暂时没有可管理的牌友。</p>}
+            </div>
+            <p className="mt-3 text-[11px] text-amber-200/55 leading-relaxed">转让房主会生成一次性新控制凭证，并复制交接链接；旧房主将失去管理权限。踢出后该席位可重新入座。</p>
           </div>
         </div>
       )}

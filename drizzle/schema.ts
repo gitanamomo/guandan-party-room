@@ -42,6 +42,8 @@ export const rooms = mysqlTable("rooms", {
   hostUserId: int("hostUserId").notNull(),
   hostControlToken: varchar("hostControlToken", { length: 96 }).notNull().unique(),
   hostName: varchar("hostName", { length: 64 }).notNull(),
+  passwordHash: varchar("passwordHash", { length: 128 }),
+  allowSpectators: boolean("allowSpectators").default(true).notNull(),
   targetScore: int("targetScore").default(14).notNull(),
   currentLevel: varchar("currentLevel", { length: 8 }).default("2").notNull(),
   status: mysqlEnum("status", ["waiting", "playing", "tribute", "settled"]).default("waiting").notNull(),

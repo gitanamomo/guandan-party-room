@@ -15,6 +15,8 @@ export default function LobbyView() {
   const [roomTitle, setRoomTitle] = useState("江南雅趣掼蛋室");
   const [selectedAvatar, setSelectedAvatar] = useState("panda");
   const [joinCode, setJoinCode] = useState("");
+  const [roomPassword, setRoomPassword] = useState("");
+  const [allowSpectators, setAllowSpectators] = useState(true);
 
   const { data: avatars } = trpc.room.getAvatars.useQuery();
 
@@ -22,8 +24,9 @@ export default function LobbyView() {
     onSuccess: (data) => {
       localStorage.setItem("gd_nickname", displayName);
       localStorage.setItem("gd_avatar", selectedAvatar);
-      localStorage.setItem("gd_guest_id", "guest_" + Math.random().toString(36).substring(2, 9));
+      localStorage.setItem("gd_guest_id", data.hostGuestId);
       localStorage.setItem(`gd_host_token_${data.roomCode}`, data.hostControlToken);
+      if (roomPassword.trim()) sessionStorage.setItem(`gd_room_password_${data.roomCode}`, roomPassword.trim());
       toast.success("房间开辟成功！您是房主，快邀请牌友入座吧！");
       setLocation(`/room/${data.roomCode}`);
     },
@@ -43,6 +46,8 @@ export default function LobbyView() {
       displayName: displayName.trim(),
       avatarStyle: selectedAvatar,
       targetScore: 14,
+      password: roomPassword.trim() || undefined,
+      allowSpectators,
     });
   };
 
@@ -168,6 +173,24 @@ export default function LobbyView() {
                   maxLength={25}
                   className="bg-stone-950/70 border-amber-800/60 text-amber-100 h-10 rounded-xl focus-visible:ring-amber-500 text-sm"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-amber-300/80 mb-2 font-medium">4. 房间密码（可选）</label>
+                  <Input
+                    value={roomPassword}
+                    onChange={(e) => setRoomPassword(e.target.value)}
+                    placeholder="留空表示无密码"
+                    maxLength={32}
+                    type="password"
+                    className="bg-stone-950/70 border-amber-800/60 text-amber-100 h-10 rounded-xl focus-visible:ring-amber-500 text-sm"
+                  />
+                </div>
+                <label className="flex items-center gap-2 rounded-xl border border-amber-900/60 bg-stone-950/50 px-3 mt-5 sm:mt-0 cursor-pointer text-xs text-amber-200/80">
+                  <input type="checkbox" checked={allowSpectators} onChange={(e) => setAllowSpectators(e.target.checked)} className="accent-amber-500" />
+                  <span>允许好友观战</span>
+                </label>
               </div>
 
               <Button
