@@ -1,4 +1,4 @@
-import { createApp } from "../server/_core/app.ts";
+import { createApp } from "../dist/vercel-app.js";
 
 const app = createApp();
 
