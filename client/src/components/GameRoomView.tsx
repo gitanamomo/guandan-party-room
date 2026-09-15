@@ -28,6 +28,7 @@ import {
   Settings,
   UserX,
   ShieldCheck,
+  SmilePlus,
 } from "lucide-react";
 import { analyzePlay, parseCard, sortCards } from "../../../shared/guandan";
 import { useLocation } from "wouter";
@@ -163,6 +164,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showPosterModal, setShowPosterModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
+  const [showStickerPanel, setShowStickerPanel] = useState(false);
   const [roomPassword, setRoomPassword] = useState(() => sessionStorage.getItem(`gd_room_password_${roomCodeOrToken}`) || "");
   const [managePassword, setManagePassword] = useState("");
   const [clearRoomPassword, setClearRoomPassword] = useState(false);
@@ -429,6 +431,19 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
     });
   };
 
+  const handleSendSticker = (sticker: string) => {
+    if (!room || !mySeat) {
+      toast.info("请先入座，再和牌友互动");
+      return;
+    }
+    chatMutation.mutate({
+      roomId: room.id,
+      senderName: mySeat.displayName,
+      message: `[表情]${sticker}`,
+    });
+    setShowStickerPanel(false);
+  };
+
   const handleTribute = (card: string) => {
     if (!room || !mySeat) return;
     tributeMutation.mutate({ roomId: room.id, seatIndex: mySeat.seatIndex, card });
@@ -473,6 +488,9 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const seatAtRight = seats.find((s) => getRelativeSeat(s.seatIndex) === 1);
   const seatAtTop = seats.find((s) => getRelativeSeat(s.seatIndex) === 2);
   const seatAtLeft = seats.find((s) => getRelativeSeat(s.seatIndex) === 3);
+  const recentStickers = logs
+    .filter((log: any) => log.type === "chat" && String(log.message).startsWith("[表情]"))
+    .slice(-4);
 
   const currentSelectionAnalysis = useMemo(() => {
     if (!selectedCards.length || !room) return null;
@@ -680,6 +698,20 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
 
       {/* 牌桌核心3D布局区：四方席位与手牌精细排布 */}
       <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto flex flex-col justify-between p-2 md:p-3">
+        {recentStickers.length > 0 && (
+          <div className="pointer-events-none absolute right-4 top-3 z-30 flex max-w-[min(80vw,360px)] flex-wrap justify-end gap-2">
+            {recentStickers.map((log: any, index: number) => (
+              <div
+                key={`${log.createdAt || log.id || index}-${index}`}
+                className="animate-in fade-in slide-in-from-right-2 rounded-2xl border border-amber-300/40 bg-stone-950/80 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md"
+                title={log.senderName}
+              >
+                <span className="mr-1 text-[10px] text-amber-200/70">{log.senderName}</span>
+                <span className="text-xl">{String(log.message).replace("[表情]", "")}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {/* ================= 顶部席位 (对家 / 北席) ================= */}
         <div className="w-full flex justify-center pt-0.5">
           <SeatCard
@@ -896,7 +928,38 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
           <span className="truncate">{logs[logs.length - 1]?.message || "茶香四溢，牌局正酣"}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 w-60">
+        <div className="relative flex items-center gap-1.5 w-60">
+          {showStickerPanel && (
+            <div className="absolute bottom-11 right-0 z-40 w-56 rounded-2xl border border-amber-700/60 bg-stone-950/95 p-2 shadow-2xl backdrop-blur-md">
+              <div className="mb-1.5 flex items-center justify-between px-1">
+                <span className="text-[11px] font-semibold text-amber-200">茶馆表情包</span>
+                <span className="text-[10px] text-amber-200/50">点击即发送</span>
+              </div>
+              <div className="grid grid-cols-6 gap-1">
+                {["👏", "👍", "😂", "😮", "😎", "🤝", "🎉", "💣", "❤️", "🙏", "🙈", "🍵"].map((sticker) => (
+                  <button
+                    key={sticker}
+                    type="button"
+                    onClick={() => handleSendSticker(sticker)}
+                    className="rounded-xl p-1.5 text-xl transition hover:scale-110 hover:bg-amber-500/20 active:scale-95"
+                    aria-label={`发送${sticker}表情`}
+                  >
+                    {sticker}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={() => setShowStickerPanel((value) => !value)}
+            className={`h-8 w-8 shrink-0 rounded-xl border-amber-700/50 bg-stone-900/80 ${showStickerPanel ? "text-amber-100 ring-1 ring-amber-400/60" : "text-amber-300"}`}
+            title="打开表情包"
+          >
+            <SmilePlus className="h-4 w-4" />
+          </Button>
           <Input
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
