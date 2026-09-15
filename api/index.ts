@@ -1,3 +1,5 @@
-import app from "../server/_core/app";
+import { createApp } from "../server/_core/app";
+
+const app = createApp();
 
 export default app;
