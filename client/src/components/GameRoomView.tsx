@@ -173,6 +173,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const [dialect, setDialect] = useState<"huaian" | "nanjing">(() => (localStorage.getItem("gd_dialect") as "huaian" | "nanjing") || "huaian");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("gd_sound") !== "off");
   const [musicOn, setMusicOn] = useState(() => localStorage.getItem("gd_music") !== "off");
+  const [tablePulse, setTablePulse] = useState(0);
   const [hostToken] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get("hostToken");
@@ -185,6 +186,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const [isSpectator] = useState(() => new URLSearchParams(window.location.search).has("view"));
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const voiceRef = useRef<HTMLAudioElement | null>(null);
+  const uiAudioRef = useRef<AudioContext | null>(null);
   const lastVoiceTimestampRef = useRef(0);
 
   const utils = trpc.useUtils();
@@ -232,6 +234,29 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
     voiceRef.current = audio;
   };
 
+  const playUiSound = (kind: "tap" | "success" | "card" | "chat" | "error") => {
+    if (!soundOn || typeof window === "undefined") return;
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = uiAudioRef.current || new AudioContextClass();
+    uiAudioRef.current = context;
+    if (context.state === "suspended") void context.resume();
+    const now = context.currentTime;
+    const notes = { tap: [520], success: [523.25, 659.25, 783.99], card: [392, 523.25], chat: [440, 554.37], error: [220, 174.61] }[kind];
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = kind === "error" ? "sawtooth" : "triangle";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, now + index * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.055, now + index * 0.07 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.07 + 0.13);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(now + index * 0.07);
+      oscillator.stop(now + index * 0.07 + 0.15);
+    });
+  };
+
   useEffect(() => {
     localStorage.setItem("gd_dialect", dialect);
     localStorage.setItem("gd_sound", soundOn ? "on" : "off");
@@ -250,6 +275,8 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
     const lastPlay = room?.lastPlay as { timestamp?: number; cardType?: string; text?: string } | null | undefined;
     if (!lastPlay?.timestamp || lastPlay.timestamp <= lastVoiceTimestampRef.current) return;
     lastVoiceTimestampRef.current = lastPlay.timestamp;
+    setTablePulse(lastPlay.timestamp);
+    playUiSound("card");
     if (lastPlay.cardType === "FREE" || lastPlay.text === "自由出牌") playAudio(AUDIO[dialect].pass);
     else if (lastPlay.cardType?.startsWith("BOMB") || lastPlay.cardType === "FOUR_JOKER_BOMB") playAudio(AUDIO[dialect].bomb);
   }, [room?.lastPlay, dialect]);
@@ -262,6 +289,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
       setPosterUrl(url);
       if (!new URLSearchParams(window.location.search).has("noPoster")) setShowPosterModal(true);
       playAudio(AUDIO.report);
+      playUiSound("success");
     }
   }, [rounds.length]);
 
@@ -277,10 +305,12 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const joinMutation = trpc.room.joinSeat.useMutation({
     onSuccess: () => {
       toast.success("入座成功！欢迎来到掼蛋雅间！");
+      playUiSound("success");
       setShowJoinModal(false);
       utils.room.getByCodeOrToken.invalidate();
     },
     onError: (err) => {
+      playUiSound("error");
       toast.error(err.message || "入座失败");
     },
   });
@@ -320,9 +350,11 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const startMutation = trpc.room.startGame.useMutation({
     onSuccess: () => {
       toast.success("四人齐聚，对局开始！祝君大显身手！");
+      playUiSound("success");
       utils.room.getByCodeOrToken.invalidate();
     },
     onError: (err) => {
+      playUiSound("error");
       toast.error(err.message || "开局失败");
     },
   });
@@ -337,9 +369,11 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const playMutation = trpc.room.playCards.useMutation({
     onSuccess: () => {
       setSelectedCards([]);
+      playUiSound("card");
       utils.room.getByCodeOrToken.invalidate();
     },
     onError: (err) => {
+      playUiSound("error");
       toast.error(err.message || "出牌失败");
     },
   });
@@ -347,9 +381,11 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const passMutation = trpc.room.passTurn.useMutation({
     onSuccess: () => {
       setSelectedCards([]);
+      playUiSound("tap");
       utils.room.getByCodeOrToken.invalidate();
     },
     onError: (err) => {
+      playUiSound("error");
       toast.error(err.message || "过牌失败");
     },
   });
@@ -357,6 +393,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
   const chatMutation = trpc.room.sendChat.useMutation({
     onSuccess: () => {
       setChatInput("");
+      playUiSound("chat");
       utils.room.getByCodeOrToken.invalidate();
     },
   });
@@ -386,9 +423,11 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
       `【掼蛋雅间邀请】房主【${room.hostName}】邀请您入座对局！房间号：${room.roomCode}。点击链接即刻自取昵称入座：${inviteUrl}`
     );
     toast.success("邀请文本与链接已复制！发送给微信/好友即可！");
+    playUiSound("success");
   };
 
   const toggleCardSelect = (cardId: string) => {
+    playUiSound("tap");
     setSelectedCards((prev) =>
       prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId]
     );
@@ -398,6 +437,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
     if (!mySeat?.handCards) return;
     setSelectedCards([]);
     toast.info("手牌已理好（逢人配与主牌靠前）");
+    playUiSound("tap");
   };
 
   const handlePlaySelected = () => {
@@ -442,6 +482,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
       message: `[表情]${sticker}`,
     });
     setShowStickerPanel(false);
+    playUiSound("chat");
   };
 
   const handleTribute = (card: string) => {
@@ -703,7 +744,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
             {recentStickers.map((log: any, index: number) => (
               <div
                 key={`${log.createdAt || log.id || index}-${index}`}
-                className="animate-in fade-in slide-in-from-right-2 rounded-2xl border border-amber-300/40 bg-stone-950/80 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md"
+                className="sticker-float animate-in fade-in slide-in-from-right-2 rounded-2xl border border-amber-300/40 bg-stone-950/80 px-3 py-1.5 text-sm shadow-lg backdrop-blur-md"
                 title={log.senderName}
               >
                 <span className="mr-1 text-[10px] text-amber-200/70">{log.senderName}</span>
@@ -738,7 +779,7 @@ export default function GameRoomView({ roomCodeOrToken }: GameRoomProps) {
 
           {/* 桌面中央：八仙桌出牌展示台 */}
           <div className="flex-1 flex flex-col items-center justify-center relative min-h-[140px] md:min-h-[190px]">
-            <div className="absolute w-44 h-44 md:w-60 md:h-60 rounded-full border-2 border-amber-600/20 bg-emerald-950/20 backdrop-blur-sm pointer-events-none shadow-2xl flex items-center justify-center">
+            <div key={tablePulse} className={`absolute w-44 h-44 md:w-60 md:h-60 rounded-full border-2 border-amber-600/20 ${tablePulse ? "table-pulse" : ""} bg-emerald-950/20 backdrop-blur-sm pointer-events-none shadow-2xl flex items-center justify-center`}>
               <span className="text-amber-500/20 text-4xl md:text-6xl font-serif font-black">
                 掼
               </span>
@@ -1250,7 +1291,7 @@ function SeatCard({ seat, position, isActive, onCallAi, canCallAi }: SeatCardPro
         <div
           className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl overflow-hidden border-2 bg-stone-950 shadow-xl transition-all duration-300 ${
             isActive
-              ? "border-amber-400 ring-4 ring-amber-500/40 scale-105"
+              ? "border-amber-400 ring-4 ring-amber-500/40 scale-105 seat-bob"
               : isOccupied
               ? "border-amber-800/60"
               : "border-stone-800 opacity-60"
@@ -1336,7 +1377,7 @@ function PlayingCardItem({ cardStr, levelRank, isSelected = false, size = "md" }
 
   return (
     <div
-      className={`relative ${sizeStyles} rounded-lg bg-stone-100 border border-stone-300 shadow-md flex flex-col justify-between p-1 font-bold ${
+      className={`relative ${sizeStyles} rounded-lg bg-stone-100 card-pop border border-stone-300 shadow-md flex flex-col justify-between p-1 font-bold ${
         isRed ? "text-red-600" : "text-stone-900"
       } ${isSelected ? "ring-2 ring-amber-500 shadow-amber-500/50" : ""}`}
     >
