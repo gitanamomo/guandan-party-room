@@ -1078,7 +1078,7 @@ function setupEvents() {
 
   // 背景音乐控制
   const bgm = $('#bgm-player');
-  let bgmOn = localStorage.getItem('ginaBgmOn') === 'true';
+  let bgmOn = localStorage.getItem('ginaBgmOn') !== 'false';
   const updateBgmUI = () => {
     const b = $('#btn-bgm');
     if (b) b.textContent = '🎵 音乐：' + (bgmOn ? '开' : '关');
@@ -1113,7 +1113,7 @@ function setupEvents() {
       tBtn?.classList.add('active');
     } else {
       roomEl?.classList.remove('theme-teahouse');
-      if (badgeEl) badgeEl.textContent = '暖阳会所 · 现代风格';
+      if (badgeEl) badgeEl.textContent = '🏙️ 暖阳会所 · 现代风格';
       mBtn?.classList.add('active');
       tBtn?.classList.remove('active');
     }
@@ -1123,7 +1123,7 @@ function setupEvents() {
   applyScene(currentScene);
 
   window.addEventListener('click', () => {
-    if (bgmOn && bgm && bgm.paused) {
+    if (bgmOn && bgm) {
       bgm.volume = 0.35;
       bgm.play().catch(() => {});
     }

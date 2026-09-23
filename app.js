@@ -93,7 +93,7 @@ $('#confirm-restart').onclick=()=>{clearTimeout(timer);game=GD.newGame();selecte
 $('#sound').onclick=()=>{soundOn=!soundOn;$('#sound').textContent='声音：'+(soundOn?'开':'关');sound();};
 /* 场景与背景音乐控制 */
 const bgm=$('#bgm-player');
-let bgmOn=localStorage.getItem('ginaBgmOn')==='true';
+let bgmOn=localStorage.getItem('ginaBgmOn')!=='false';
 function updateBgmUI(){const b=$('#btn-bgm');if(b)b.textContent='🎵 音乐：'+(bgmOn?'开':'关');}
 function toggleBgm(){
   bgmOn=!bgmOn;localStorage.setItem('ginaBgmOn',String(bgmOn));
@@ -113,7 +113,7 @@ function applyScene(scene){
     mBtn?.classList.remove('active');tBtn?.classList.add('active');
   }else{
     roomEl?.classList.remove('theme-teahouse');
-    if(labelEl)labelEl.textContent='暖阳会所 · 现代风格';
+    if(labelEl)labelEl.textContent='🏙️ 暖阳会所 · 现代风格';
     mBtn?.classList.add('active');tBtn?.classList.remove('active');
   }
 }
@@ -121,6 +121,6 @@ if($('#btn-scene-modern'))$('#btn-scene-modern').onclick=()=>applyScene('modern'
 if($('#btn-scene-teahouse'))$('#btn-scene-teahouse').onclick=()=>applyScene('teahouse');
 applyScene(currentScene);
 
-window.addEventListener('click',()=>{if(bgmOn&&bgm&&bgm.paused){bgm.volume=0.35;bgm.play().catch(()=>{});}},{once:true});
+window.addEventListener('click',()=>{if(bgmOn&&bgm){bgm.volume=0.35;bgm.play().catch(()=>{});}},{once:true});
 window.addEventListener('pagehide',()=>clearTimeout(timer));
 render();

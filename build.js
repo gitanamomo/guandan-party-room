@@ -16,6 +16,7 @@ const requiredFiles = [
   'package.json',
   'netlify/functions/api.js',
   'assets/guandan-club-v2.png',
+  'assets/guandan-club-v2.jpg',
   'assets/guandan-teahouse.jpg',
   'assets/bgm.mp3'
 ];

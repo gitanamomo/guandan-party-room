@@ -46,7 +46,7 @@ function stopServer() { if (child && !child.killed) child.kill('SIGTERM'); }
 
 /* ---- 静态资源必须按真实路径可取（Netlify 上靠这一点保证 room.html 不被兜底吞掉）---- */
 test('静态资源：/index.html /room.html /app.js /engine.js /assets 图片均 200', async () => {
-  for (const p of ['/index.html', '/room.html', '/app.js', '/engine.js', '/room.js', '/assets/guandan-club-v2.png', '/assets/guandan-teahouse.jpg', '/assets/bgm.mp3']) {
+  for (const p of ['/index.html', '/room.html', '/app.js', '/engine.js', '/room.js', '/assets/guandan-club-v2.png', '/assets/guandan-club-v2.jpg', '/assets/guandan-teahouse.jpg', '/assets/bgm.mp3']) {
     const res = await fetch(BASE + p);
     assert.equal(res.status, 200, p + ' 应可访问，实际 ' + res.status);
   }
