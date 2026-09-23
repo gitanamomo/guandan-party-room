@@ -1,0 +1,58 @@
+# GINA 牌友会 · Netlify 部署配置
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+  command = "node build.js"
+
+# 函数打包：确保根目录的 engine.js 被一起打包（api.js 会 require 它）
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["engine.js"]
+
+# /api/* → Netlify Function（房间创建/加入/状态/出牌）。
+# 必须排在所有其它重定向之前，否则会被 SPA 兜底吞掉。
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# 注意：这里刻意不做 `/* → /index.html` 的通配兜底。
+# 该写法会让 /room.html、/assets/*.png、/engine.js 全部返回 index.html，
+# 导致房间页打不开、背景图 404（正是之前在线版不可玩的原因之一）。
+# 本项目没有前端路由，HTML 均为真实文件，直接按文件路径访问即可。
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# HTML 不缓存，保证每次部署后拿到最新版本
+[[headers]]
+  for = "*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/engine.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/room.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[dev]
+  command = "node server.cjs"
+  port = 8769
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "18"

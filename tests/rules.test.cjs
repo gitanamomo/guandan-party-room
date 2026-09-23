@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict'),G=require('../engine.js');let count=0;function test(name,fn){fn();count++;console.log('✓ '+name);}let uid=0;const c=(r,s='♠')=>({id:'test'+uid++,r,s});const cs=rs=>rs.map(r=>c(r));const has=(a,t,l=2)=>G.classify(a,l).find(p=>p.type===t);
+test('108张唯一牌，每人27张',()=>{const d=G.deck();assert.equal(d.length,108);assert.equal(new Set(d.map(c=>c.id)).size,108);assert.deepEqual(G.newGame().hands.map(h=>h.length),[27,27,27,27]);});
+test('单张级牌次于小王；红桃单张不能当王',()=>{assert.equal(G.power(2,2),15);assert(G.power(16,2)>15);assert.deepEqual(G.classify([c(2,'♥')],2).map(p=>p.rs[0]),[2]);});
+test('王对可带但百搭不配王；两张王不是炸弹',()=>{assert(has(cs([3,3,3,17,17]),'三带二'));assert(!has([c(17),c(2,'♥')],'对子'));assert(!G.classify(cs([16,17]),2).length);});
+test('A2345、TJQKA合法；JQKA2、六张顺子非法',()=>{assert(has(cs([14,2,3,4,5]),'顺子'));assert(has(cs([10,11,12,13,14]),'顺子'));assert(!has(cs([11,12,13,14,2]),'顺子'));assert(!G.classify(cs([3,4,5,6,7,8]),2).length);});
+test('三连对、钢板长度固定；A可低位',()=>{assert(has(cs([14,14,2,2,3,3]),'三连对'));assert(has(cs([14,14,14,2,2,2]),'钢板'));assert(!G.classify(cs([3,3,4,4,5,5,6,6]),2).length);});
+test('级牌在连续牌型中按自然点数',()=>{let a=has(cs([2,3,4,5,6]),'顺子'),b=has(cs([3,4,5,6,7]),'顺子');assert(G.beats(b,a));});
+test('同花顺可用两张百搭补点补花色',()=>{assert(has([c(7,'♣'),c(9,'♣'),c(11,'♣'),c(2,'♥'),c(2,'♥')],'同花顺'));});
+test('三带二的两种百搭声明都保留',()=>{let opts=G.classify([c(3),c(3),c(4),c(4),c(2,'♥')],2).filter(p=>p.type==='三带二');assert(opts.some(p=>p.rs[0]===3));assert(opts.some(p=>p.rs[0]===4));});
+test('四王 > 六炸 > 同花顺 > 五炸 > 四炸',()=>{const arr=[has(cs([3,3,3,3]),'炸弹'),has(cs([3,3,3,3,3]),'炸弹'),has(cs([3,4,5,6,7]),'同花顺'),has(cs([3,3,3,3,3,3]),'炸弹'),has(cs([16,16,17,17]),'四王炸')];arr.forEach((p,i)=>{assert(p);if(i)assert(G.beats(p,arr[i-1]));assert(!G.beats(p,p));});});
+test('十张炸弹可由八张同点加两张百搭组成',()=>{assert(has([...cs(Array(8).fill(5)),c(2,'♥'),c(2,'♥')],'炸弹'));});
+test('非法操作不改变手牌',()=>{let g=G.newGame(),s=g.turn,h=JSON.stringify(g.hands);assert.throws(()=>G.act(g,(s+1)%4,[g.hands[s][0].id]));assert.throws(()=>G.act(g,s,[]));assert.throws(()=>G.act(g,s,['missing']));assert.throws(()=>G.act(g,s,[g.hands[s][0].id,g.hands[s][0].id]));assert.equal(JSON.stringify(g.hands),h);});
+function mock(h){let g=G.newGame();Object.assign(g,{hands:h,turn:0,top:null,passed:[],finished:[],phase:'play',discard:[]});return g;}
+test('走完后其余三家过牌由对家接风',()=>{let g=mock([cs([3]),cs([4,5]),cs([6,7]),cs([8,9])]);G.act(g,0,[g.hands[0][0].id]);[1,2,3].forEach(i=>G.act(g,i,[]));assert.equal(g.turn,2);assert.equal(g.top,null);});
+test('过牌后有人加压，可在下一轮重新跟牌',()=>{let g=mock([cs([3,9]),cs([4,10]),cs([5,11]),cs([6,12])]);G.act(g,0,[g.hands[0][0].id]);G.act(g,1,[]);G.act(g,2,[g.hands[2][0].id]);G.act(g,3,[]);G.act(g,0,[]);assert.equal(g.turn,1);G.act(g,1,[g.hands[1][1].id]);assert.equal(g.top.seat,1);});
+test('双下立即结束并升三级',()=>{let g=mock([[],cs([4]),[],cs([5])]);g.finished=[0,2];G.settle(g);assert.equal(g.phase,'over');assert.equal(g.levels[0],5);assert(g.result.double);});
+test('一三游升二级，一末游升一级',()=>{for(const [f,n] of [[[0,1,2],4],[[0,1,3],3]]){let g=mock([[],[],[],cs([5])]);g.finished=f;G.settle(g);assert.equal(g.levels[0],n);}});
+test('必须实际打A且队友非末游才能过A',()=>{let g=G.newGame();g.levels=[13,2];g.level=13;g.playingTeam=0;g.finished=[0,2];G.settle(g);assert.equal(g.levels[0],14);assert.equal(g.champion,undefined);g.level=14;g.playingTeam=0;g.finished=[0,1,2];G.settle(g);assert.equal(g.champion,0);});
+test('三次冲A失败回2',()=>{let g=G.newGame();g.levels=[14,2];for(let n=0;n<3;n++){g.level=14;g.playingTeam=0;g.finished=[0,1,3];G.settle(g);}assert.equal(g.champion,undefined);assert.equal(g.levels[0],2);});
+test('单贡最大牌排除红桃级牌，手动还贡后27张',()=>{let g=G.newGame();g.previous=[0,1,2,3];g.hands[3]=g.hands[3].filter(c=>c.r!==17);g.hands[3].push(c(17));let before=g.hands.map(h=>h.length);G.tribute(g);assert.equal(g.phase,'return');assert.equal(g.turn,3);assert.equal(g.hands[0].length,before[0]+1);let choice=G.returnChoices(g,0)[0];G.giveBack(g,0,choice.id);assert.equal(g.phase,'play');assert.deepEqual(g.hands.map(h=>h.length),before);});
+test('单贡抗贡：末游两大王，由头游先出',()=>{let g=mock([cs([3]),cs([4]),cs([5]),cs([17,17,6])]);g.previous=[0,1,2,3];G.tribute(g);assert.equal(g.phase,'play');assert.equal(g.turn,0);});
+test('双贡合计两大王抗贡',()=>{let g=mock([cs([3]),cs([17,4]),cs([5]),cs([17,6])]);g.previous=[0,2,1,3];G.tribute(g);assert.equal(g.turn,0);assert.equal(g.returns.length,0);});
+test('双贡同点：头游下家贡头游并先出',()=>{let g=mock([cs([3]),cs([14,4]),cs([5]),cs([14,6])]);g.previous=[0,2,1,3];G.tribute(g);assert.equal(g.turn,1);assert.deepEqual(g.returns,[{from:0,to:1},{from:2,to:3}]);});
+test('还贡排除级牌；无小牌返回最小',()=>{let g=mock([cs([2,10,11]),[],[],[]]);assert.deepEqual(G.returnChoices(g,0).map(c=>c.r),[10]);g.hands[0]=cs([2,11,12]);assert.deepEqual(G.returnChoices(g,0).map(c=>c.r),[11]);});
+let seed=56789;const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+test('固定种子40副四电脑全局：合法轮次、无丢牌、无死局',()=>{let g=G.newGame(random);for(let r=0;r<40;r++){let steps=0;while(g.phase!=='over'){assert(++steps<1200);if(g.phase==='return')G.bot(g,g.returns[0].from);else G.bot(g,g.turn);let all=[...g.hands.flat(),...g.discard];assert.equal(all.length,108);assert.equal(new Set(all.map(c=>c.id)).size,108);}assert.equal(g.finished.length,4);if(g.champion!==undefined)g=G.newGame(random);else G.deal(g);}});
+console.log(`${count} tests passed`);

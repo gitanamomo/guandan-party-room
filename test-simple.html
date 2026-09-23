@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GINA登录测试</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-group { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ccc; 
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .result { 
+            margin: 10px 0; 
+            padding: 10px; 
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        button { 
+            padding: 10px 15px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .run-test { 
+            background-color: #007bff; 
+            color: white;
+        }
+        .run-test:hover {
+            background-color: #0056b3;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 GINA牌友会 - 登录测试</h1>
+    
+    <div class="test-group">
+        <h3>🔧 服务器连接测试</h3>
+        <button class="run-test" onclick="testServerConnection()">测试服务器连接</button>
+        <div id="server-result"></div>
+    </div>
+    
+    <div class="test-group">
+        <h3>🏠 创建房间测试</h3>
+        <input type="text" id="test-name" placeholder="玩家名字" value="测试玩家">
+        <button class="run-test" onclick="testCreateRoom()">创建房间</button>
+        <div id="create-result"></div>
+    </div>
+    
+    <div class="test-group">
+        <h3>👥 加入房间测试</h3>
+        <input type="text" id="join-name" placeholder="玩家名字" value="第二个玩家">
+        <input type="text" id="room-code" placeholder="房间号" value="">
+        <button class="run-test" onclick="testJoinRoom()">加入房间</button>
+        <div id="join-result"></div>
+    </div>
+    
+    <div class="test-group">
+        <h3>📝 错误日志</h3>
+        <div id="error-log" style="background: #f0f0f0; padding: 10px; border-radius: 3px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">
+            等待测试...
+        </div>
+    </div>
+
+    <script>
+        let errorLog = [];
+        
+        function logError(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            errorLog.push(`[${timestamp}] ${message}`);
+            updateErrorLog();
+        }
+        
+        function updateErrorLog() {
+            const logElement = document.getElementById('error-log');
+            logElement.textContent = errorLog.join('\n');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        async function showResult(elementId, message, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = message;
+            element.style.display = 'block';
+            logError(`结果 [${elementId}]: ${message}`);
+        }
+        
+        async function testServerConnection() {
+            try {
+                logError('开始测试服务器连接...');
+                const response = await fetch('http://localhost:8769/');
+                if (response.ok) {
+                    showResult('server-result', '✅ 服务器连接正常', true);
+                } else {
+                    showResult('server-result', `❌ 服务器响应异常: ${response.status}`, false);
+                }
+            } catch (error) {
+                showResult('server-result', `❌ 无法连接到服务器: ${error.message}`, false);
+                logError(`连接错误: ${error.message}`);
+            }
+        }
+        
+        async function testCreateRoom() {
+            try {
+                logError('开始创建房间...');
+                const name = document.getElementById('test-name').value;
+                if (!name) {
+                    showResult('create-result', '❌ 请输入玩家名字', false);
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:8769/api/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        password: 'gina'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    showResult('create-result', `✅ 创建房间成功！房间号: ${data.state.code}`, true);
+                    document.getElementById('room-code').value = data.state.code;
+                    logError(`房间创建成功: ${data.state.code}, Token: ${data.token.substring(0, 10)}...`);
+                } else {
+                    showResult('create-result', `❌ 创建房间失败: ${data.error}`, false);
+                    logError(`创建房间失败: ${data.error}`);
+                }
+            } catch (error) {
+                showResult('create-result', `❌ 创建房间出错: ${error.message}`, false);
+                logError(`创建房间错误: ${error.message}`);
+            }
+        }
+        
+        async function testJoinRoom() {
+            try {
+                logError('开始加入房间...');
+                const name = document.getElementById('join-name').value;
+                const code = document.getElementById('room-code').value;
+                
+                if (!name) {
+                    showResult('join-result', '❌ 请输入玩家名字', false);
+                    return;
+                }
+                
+                if (!code) {
+                    showResult('join-result', '❌ 请先创建房间或输入房间号', false);
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:8769/api/join', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        code: code,
+                        password: 'gina'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    showResult('join-result', '✅ 加入房间成功！', true);
+                    logError(`加入房间成功: ${name} -> ${code}`);
+                } else {
+                    showResult('join-result', `❌ 加入房间失败: ${data.error}`, false);
+                    logError(`加入房间失败: ${data.error}`);
+                }
+            } catch (error) {
+                showResult('join-result', `❌ 加入房间出错: ${error.message}`, false);
+                logError(`加入房间错误: ${error.message}`);
+            }
+        }
+        
+        // 页面加载时自动测试服务器连接
+        window.onload = function() {
+            logError('页面加载完成，开始自动测试...');
+            setTimeout(testServerConnection, 1000);
+        };
+    </script>
+</body>
+</html>

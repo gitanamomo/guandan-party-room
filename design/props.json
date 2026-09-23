@@ -1,0 +1,15 @@
+{
+  "schema": "game-room.prop-manifest.v1",
+  "roomId": "guandan-club",
+  "generation": {
+    "provider": "meshy",
+    "apiModel": "meshy-5",
+    "pricingSource": "",
+    "pricingVerifiedAt": "",
+    "creditsPerTexturedTask": null,
+    "hardCreditCeiling": 0,
+    "maxChargedAttemptsPerAsset": 2,
+    "note": "零付费预算，本批无 Meshy 调用；价格未核实，禁止据模板默认价格提交。"
+  },
+  "assets": []
+}

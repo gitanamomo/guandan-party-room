@@ -1,0 +1,10 @@
+{
+  "generator": "built-in image_gen.imagegen",
+  "model": "not exposed",
+  "role": "scene visual target only; not a mesh-ready prop reference or runtime 3D asset",
+  "image": "../assets/guandan-club-v2.png",
+  "prompt": "../assets/guandan-club-v2.prompt.txt",
+  "sha256": "e5ec6a4a38526f7f97fa8bf0017cb007a58f9bf57d78bc710ba4ee3fa4e7ea48",
+  "reviewStatus": "pending",
+  "meshSubmission": null
+}

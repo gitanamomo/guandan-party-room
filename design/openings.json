@@ -1,0 +1,9 @@
+{
+  "schema": "game-room.opening-schedule.v1",
+  "roomId": "guandan-club",
+  "primaryArrival": {
+    "openingId": "",
+    "exception": "固定座位棋牌场景，无漫游或建筑进入行为；通过房间界面直接入座。窗口布局尚待确定。"
+  },
+  "openings": []
+}

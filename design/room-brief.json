@@ -1,0 +1,77 @@
+{
+  "schema": "game-room.room-brief.v1",
+  "roomId": "guandan-club",
+  "family": "gameplay-room",
+  "purpose": "四人掼蛋固定座位私人牌友会",
+  "runtimeSurface": "本地 HTML + WebGL，局域网服务同步",
+  "boundsMeters": [
+    8,
+    8,
+    3.6
+  ],
+  "hero": {
+    "id": "card-table",
+    "role": "四人共享出牌焦点",
+    "reservedBoundsMeters": [
+      4.8,
+      4.8,
+      2.2
+    ]
+  },
+  "symmetry": {
+    "mode": "bilateral",
+    "order": 2,
+    "appliesTo": [
+      "shell",
+      "seating",
+      "table"
+    ],
+    "exceptions": [
+      "主镜头近侧隐藏墙体以避免遮挡"
+    ]
+  },
+  "circulation": {
+    "description": "固定座位，无自由行走，座椅周边仅视觉留白",
+    "minimumClearanceMeters": 0.8
+  },
+  "productionCamera": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "location": [
+      0,
+      -7,
+      6
+    ],
+    "target": [
+      0,
+      0,
+      0.9
+    ],
+    "verticalFovDegrees": 42
+  },
+  "performanceBudget": {
+    "maxSceneTriangles": 80000,
+    "maxVLowBytes": 5000000,
+    "maxHighTextureBytes": 16000000
+  },
+  "creditBudget": {
+    "maximumCredits": 0,
+    "approvalRequired": true
+  },
+  "environment": {
+    "type": "none",
+    "identity": "",
+    "source": "",
+    "assignmentKey": ""
+  },
+  "artifacts": {
+    "floorPlan": "",
+    "reflectedCeilingPlan": "",
+    "planMetadata": "plan-metadata.json",
+    "wallElevations": [],
+    "visualTarget": "../index.html",
+    "openingContactSheet": ""
+  }
+}

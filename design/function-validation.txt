@@ -1,0 +1,13 @@
+FAIL: plan-metadata.json: complete reviewed-space coverage is required
+FAIL: room-brief.json: symmetry.appliesTo contains an invalid target
+FAIL: Function: missing artifact floorPlan
+FAIL: Function: missing artifact reflectedCeilingPlan
+FAIL: Function: missing artifact openingContactSheet
+FAIL: Function: at least one existing wall elevation is required
+FAIL: props.json: current official Meshy pricing verification is required
+FAIL: props.json: positive creditsPerTexturedTask is required
+FAIL: props.json: hardCreditCeiling must be positive and no greater than the room credit budget
+FAIL: props.json: conceive at least one prop before Function approval
+FAIL: room-layout.json: meter units and at least one shell surface are required
+FAIL: Function gate: explicit approval is required
+FAIL: final-report.json: gates.function must be true

@@ -1,0 +1,6 @@
+node_modules/
+.netlify/
+server.cjs
+tests/
+versions/
+design/

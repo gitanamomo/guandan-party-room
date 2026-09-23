@@ -1,0 +1,38 @@
+{
+  "schema": "game-room.milestone-reviews.v1",
+  "roomId": "guandan-club",
+  "function": {
+    "status": "pending",
+    "approvedBy": "",
+    "approvedAt": "",
+    "evidence": [
+      "../index.html",
+      "../PLAN.md",
+      "../assets/guandan-club-v2.png",
+      "../assets/guandan-club-v2.prompt.txt"
+    ],
+    "strangestElement": "静态大头人物仅表达比例，不作为最终角色质量承诺。",
+    "notes": "用户认可初版构图，要求人物和场景精致化。已生成 AI 场景概念图 v2，尚待美术确认；缺少完整三维正投影与资产参考证据，Function 仍 pending。"
+  },
+  "form": {
+    "status": "pending",
+    "approvedBy": "",
+    "approvedAt": "",
+    "evidence": [],
+    "strangestElement": "",
+    "notes": ""
+  },
+  "runtime": {
+    "status": "pending",
+    "approvedBy": "",
+    "approvedAt": "",
+    "evidence": [],
+    "strangestElement": "",
+    "notes": ""
+  },
+  "layoutFeedback": {
+    "quote": "构图可以，人物和场景需要再精致些",
+    "layoutAccepted": true,
+    "refinedArtApproved": false
+  }
+}

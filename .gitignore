@@ -1,27 +1,49 @@
-# Dependencies
-**/node_modules
-.pnpm-store/
+# Local Netlify folder
+.netlify/
 
-# Build outputs
-dist/
-build/
-*.dist
+# 依赖文件夹
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Environment variables
+# 运行时文件
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# 缓存目录
+.cache/
+.npm/
+.eslintcache
+
+# 环境变量
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# IDE and editor files
+# 构建输出
+dist/
+build/
+out/
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 编辑器文件
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# 系统文件
 .DS_Store
 .DS_Store?
 ._*
@@ -30,85 +52,20 @@ build/
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-*.bak
-
-# Coverage directory used by tools like istanbul
+# 测试覆盖率报告
 coverage/
-*.lcov
+lcov-report/
+lcov.info
 
-# nyc test coverage
-.nyc_output
+# 其他
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Dependency directories
-jspm_packages/
+# 构建临时文件
+build-complete.json
+deploy-info.json
 
-# TypeScript cache
-*.tsbuildinfo
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# Next.js build output
-.next
-
-# Nuxt.js build / generate output
-.nuxt
-
-# Gatsby files
-.cache/
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
-tmp/
-temp/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Webdev artifacts (checkpoint zips, migrations, etc.)
-.webdev/
-
-# Manus version file (auto-generated, not part of source)
-client/public/__manus__/version.json
-.project-config.json
+# 部署脚本用的 Netlify CLI 配置目录（含令牌，切勿提交）
+.home/
