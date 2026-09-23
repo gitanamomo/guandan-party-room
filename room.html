@@ -28,8 +28,18 @@ main{max-width:1440px;margin:auto;padding:20px 4%}
 h1{font:600 clamp(24px,2.8vw,38px) 'Songti SC',serif;margin:4px 0}
 .intro p{font-size:12px;line-height:1.7;color:#718274}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:22px}
-.room{position:relative;border-radius:25px;overflow:hidden;min-height:460px;background:#c6b58c url('assets/guandan-club-v2.png') center 45%/cover;box-shadow:0 12px 30px #6c502d20}
+.room{position:relative;border-radius:25px;overflow:hidden;min-height:460px;background:#c6b58c url('assets/guandan-club-v2.png') center 45%/cover;box-shadow:0 12px 30px #6c502d20;transition:background-image .3s ease}
 .room:before{content:'';position:absolute;inset:0;background:linear-gradient(#213c3025,#203d3055);pointer-events:none}
+/* 中古棋牌茶社主题 */
+.room.theme-teahouse{background:#2b1810 url('assets/guandan-teahouse.jpg') center 45%/cover;box-shadow:0 12px 36px rgba(45,18,10,.35)}
+.room.theme-teahouse:before{background:linear-gradient(rgba(35,16,10,.25),rgba(20,10,6,.50))}
+.room.theme-teahouse .room-label{background:rgba(52,26,16,.85);border-color:rgba(230,165,85,.45);color:#fff3dc}
+.room.theme-teahouse .felt-played{background:radial-gradient(ellipse at 50% 50%,rgba(16,36,24,0) 0%,rgba(16,36,24,0) 55%,rgba(16,36,24,.22) 80%,rgba(16,36,24,.40) 100%)}
+.room.theme-teahouse .seat{background:rgba(46,24,15,.86);border-color:rgba(215,160,80,.4);color:#fff4de}
+.room.theme-teahouse .table-message{background:rgba(52,26,16,.90);border-color:rgba(230,170,85,.5);color:#fff4de}
+.scene-switch{display:inline-flex;background:#ede3cb;padding:3px;border-radius:12px;border:1px solid #d5c6a3;gap:3px}
+.scene-btn{padding:6px 12px;font-size:12px;border:0;border-radius:9px;background:transparent;color:var(--ink);cursor:pointer;font-weight:500;transition:all .18s}
+.scene-btn.active{background:var(--green);color:#fff7df;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .room-label{position:absolute;left:16px;bottom:14px;color:#fff5da;font-size:10px;letter-spacing:2px;background:rgba(37,73,61,.75);padding:6px 12px;border-radius:999px;border:1px solid rgba(234,189,101,.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2}
 .table-message{position:absolute;left:50%;top:3%;transform:translateX(-50%);max-width:65%;padding:8px 18px;background:rgba(37,73,61,.88);color:#fff5da;border:1px solid rgba(234,189,101,.4);border-radius:18px;font-size:13px;line-height:1.5;text-align:center;box-shadow:0 4px 14px #0c1f1a40;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2}
 .felt-played{position:absolute;left:26%;right:26%;top:42%;bottom:28%;min-height:100px;background:radial-gradient(ellipse at 50% 50%,rgba(20,40,32,0) 0%,rgba(20,40,32,0) 55%,rgba(20,40,32,.18) 80%,rgba(20,40,32,.30) 100%);border-radius:60%;display:flex;align-items:center;justify-content:center;padding:8px 14px;pointer-events:none;z-index:2}
@@ -182,12 +192,18 @@ if (typeof Peer === 'undefined') {
 </script>
 </head>
 <body>
+<audio id="bgm-player" src="assets/bgm.mp3" loop preload="none"></audio>
 <header>
   <div class="brand">
     <b>GINA 牌友会</b>
     <span>掼蛋 / 四人在线联机 · 实时对战</span>
   </div>
   <div class="nav-actions">
+    <div class="scene-switch" id="scene-switch">
+      <button class="scene-btn active" id="btn-scene-modern" data-scene="modern" title="切换到现代暖阳会所风格">🏙️ 暖阳会所</button>
+      <button class="scene-btn" id="btn-scene-teahouse" data-scene="teahouse" title="切换到中古棋牌茶社风格">🍵 雅轩茶社</button>
+    </div>
+    <button id="btn-bgm">🎵 音乐：关</button>
     <button id="nav-share" class="primary">复制邀请链接 🔗</button>
     <button id="nav-rules">本桌规则</button>
     <button id="nav-sound">声音：关</button>

@@ -15,7 +15,9 @@ const requiredFiles = [
   'netlify.toml',
   'package.json',
   'netlify/functions/api.js',
-  'assets/guandan-club-v2.png'
+  'assets/guandan-club-v2.png',
+  'assets/guandan-teahouse.jpg',
+  'assets/bgm.mp3'
 ];
 
 console.log('📋 检查项目文件...');

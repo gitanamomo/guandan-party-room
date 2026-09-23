@@ -69,3 +69,4 @@ deploy-info.json
 
 # 部署脚本用的 Netlify CLI 配置目录（含令牌，切勿提交）
 .home/
+.workbuddy/

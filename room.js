@@ -1075,6 +1075,59 @@ function setupEvents() {
   };
   $('#nav-sound').onclick = toggleSound;
   $('#aside-sound').onclick = toggleSound;
+
+  // 背景音乐控制
+  const bgm = $('#bgm-player');
+  let bgmOn = localStorage.getItem('ginaBgmOn') === 'true';
+  const updateBgmUI = () => {
+    const b = $('#btn-bgm');
+    if (b) b.textContent = '🎵 音乐：' + (bgmOn ? '开' : '关');
+  };
+  const toggleBgm = () => {
+    bgmOn = !bgmOn;
+    localStorage.setItem('ginaBgmOn', String(bgmOn));
+    if (bgmOn && bgm) {
+      bgm.volume = 0.35;
+      bgm.play().catch(() => {});
+    } else if (bgm) {
+      bgm.pause();
+    }
+    updateBgmUI();
+  };
+  if ($('#btn-bgm')) $('#btn-bgm').onclick = toggleBgm;
+  updateBgmUI();
+
+  // 场景风格切换
+  let currentScene = localStorage.getItem('ginaScene') || 'modern';
+  const applyScene = (scene) => {
+    currentScene = scene;
+    localStorage.setItem('ginaScene', scene);
+    const roomEl = $('.room');
+    const badgeEl = $('#room-badge');
+    const mBtn = $('#btn-scene-modern');
+    const tBtn = $('#btn-scene-teahouse');
+    if (scene === 'teahouse') {
+      roomEl?.classList.add('theme-teahouse');
+      if (badgeEl) badgeEl.textContent = '🏮 雅轩茶社 · 中古茶韵';
+      mBtn?.classList.remove('active');
+      tBtn?.classList.add('active');
+    } else {
+      roomEl?.classList.remove('theme-teahouse');
+      if (badgeEl) badgeEl.textContent = '暖阳会所 · 现代风格';
+      mBtn?.classList.add('active');
+      tBtn?.classList.remove('active');
+    }
+  };
+  if ($('#btn-scene-modern')) $('#btn-scene-modern').onclick = () => applyScene('modern');
+  if ($('#btn-scene-teahouse')) $('#btn-scene-teahouse').onclick = () => applyScene('teahouse');
+  applyScene(currentScene);
+
+  window.addEventListener('click', () => {
+    if (bgmOn && bgm && bgm.paused) {
+      bgm.volume = 0.35;
+      bgm.play().catch(() => {});
+    }
+  }, { once: true });
 }
 
 /* ---------------- 页面加载启动 ---------------- */
