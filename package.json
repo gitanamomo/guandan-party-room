@@ -1,13 +1,13 @@
 {
   "name": "gina-guandan-club",
   "private": true,
-  "version": "1.3.0",
-  "description": "GINA牌友会 - 掼蛋游戏项目",
+  "version": "1.4.0",
+  "description": "GINA 牌友会：掼蛋、宠物主题与斗地主",
   "main": "index.html",
   "scripts": {
     "start": "node server.cjs",
     "dev": "live-server --port=8888 --host=localhost",
-    "test": "node tests/rules.test.cjs && node tests/netlify-api.test.cjs && node tests/live-server.test.cjs",
+    "test": "node tests/doudizhu.test.cjs && node tests/rules.test.cjs && node tests/netlify-api.test.cjs && node tests/live-server.test.cjs",
     "lint": "eslint . --ext .js",
     "build": "node build.js",
     "predeploy": "npm run build",
@@ -25,7 +25,7 @@
   "homepage": "https://app.netlify.com/projects/guandan-party-room/overview",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/gina-card-game"
+    "url": "https://github.com/gitanamomo/guandan-party-room.git"
   },
   "engines": {
     "node": ">=16.0.0"

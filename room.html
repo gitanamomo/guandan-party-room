@@ -190,7 +190,7 @@ if (typeof Peer === 'undefined') {
   document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"><\/script>');
 }
 </script>
-</head>
+<link rel="stylesheet" href="pet-theme.css"></head>
 <body>
 <audio id="bgm-player" src="assets/bgm.mp3" loop preload="none"></audio>
 <header>
@@ -198,8 +198,9 @@ if (typeof Peer === 'undefined') {
     <b>GINA 牌友会</b>
     <span>掼蛋 / 四人在线联机 · 实时对战</span>
   </div>
-  <div class="nav-actions">
+  <div class="nav-actions"><a class="game-link" href="doudizhu.html">♠ 斗地主 · 三人练习</a>
     <div class="scene-switch" id="scene-switch">
+      <button class="scene-btn" id="btn-scene-pets" data-scene="pets">🐾 宠物花园</button>
       <button class="scene-btn active" id="btn-scene-modern" data-scene="modern" title="切换到现代暖阳会所风格">🏙️ 暖阳会所</button>
       <button class="scene-btn" id="btn-scene-teahouse" data-scene="teahouse" title="切换到中古棋牌茶社风格">🍵 雅轩茶社</button>
     </div>
@@ -344,7 +345,7 @@ if (typeof Peer === 'undefined') {
     </article>
   </div>
 
-  <footer>GINA 牌友会 · 无需安装 · 异地在线可玩 · 斗地主与麻将后续开放</footer>
+  <footer>GINA 牌友会 · 无需安装 · 异地在线可玩 · <a href="doudizhu.html">斗地主已开放</a> · 麻将筹备中</footer>
 </main>
 
 <!-- 规则弹窗 -->
@@ -368,5 +369,5 @@ if (typeof Peer === 'undefined') {
 
 <script src="engine.js"></script>
 <script src="room.js"></script>
-</body>
+<script src="pet-theme.js"></script></body>
 </html>

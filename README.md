@@ -1,6 +1,6 @@
-# GINA 牌友会 · 掼蛋在线
+# GINA 牌友会 · 掼蛋与宠物斗地主
 
-> 纯前端 + 轻量 Node 后端的掼蛋棋牌游戏，支持本机单人练习与在线四人联机对战。  
+> 纯前端棋牌游戏：掼蛋单机 / 四人联机、斗地主三人单机练习；新增 PetVerse 宠物花园模板。
 > 无第三方框架，无构建工具，打开即玩。
 
 ![暖阳会所场景](assets/guandan-club-v2.jpg)
@@ -11,6 +11,13 @@
 
 ---
 
+## v1.4.0（2026-11-08）新增
+
+- **宠物花园模板**：顶部「🐾 宠物花园」同时切换主角和场景，复用 PetVerse 橘猫、贵宾犬、斯芬克斯猫、法斗；掼蛋单机、联机与斗地主共享主题偏好。新访客默认宠物模板，已有场景偏好保留。
+- **斗地主**：顶部「♠ 斗地主 · 三人练习」进入 `doudizhu.html`，你对两位电脑。支持叫分、底牌、完整本桌牌型、提示、过牌、结算与再来一局；具体变体见页面「本桌规则」。本次斗地主为单机模式，掼蛋继续支持四人联机。
+- **环境**：轻量 SVG 宠物花园，绿色绒面桌、木地板、爪印与绿植。原暖阳会所和雅轩茶社仍可切换。
+- **服务与验证**：补齐 CSS / SVG MIME；新增斗地主规则与整局测试、静态资源检查。详见 [验收记录](docs/verification-2026-11-08/README.md)。
+
 ## 🎮 快速开始
 
 ### 本机单人练习（无需服务器）
@@ -19,7 +26,8 @@
 双击 index.html 或用浏览器打开
 ```
 
-- 你与三位电脑牌友自动开桌，从打 2 开始
+- 掼蛋：你与三位电脑牌友自动开桌，从打 2 开始
+- 斗地主：打开 `doudizhu.html`，等待你叫分或出牌；点击「提示」选牌，再点「出牌」
 - 点牌选中 → 出牌 / 不要；提示按钮可自动推荐
 - 百搭牌型在下拉框中选择声明
 - 轮到还贡时选一张小牌确认
@@ -48,7 +56,7 @@ node server.cjs          # 默认端口 8769
 
 | 控件 | 功能 |
 |------|------|
-| `🏙️ 暖阳会所` / `🍵 雅轩茶社` | 切换现代风格与中古茶社风格背景 |
+| `🐾 宠物花园` / `🏙️ 暖阳会所` / `🍵 雅轩茶社` | 同步切换宠物主角、花园环境或原有背景 |
 | `🎵 音乐：开/关` | 开关国风竹笛古筝背景音乐 |
 
 - 音乐**默认开启**，首次点击页面（出牌、选牌等）即自动播放
@@ -62,7 +70,14 @@ node server.cjs          # 默认端口 8769
 掼蛋棋牌室/
 ├── index.html                   # 单机练习页
 ├── app.js                       # 单机逻辑：渲染、选牌、BGM、场景
-├── engine.js                    # 规则引擎（浏览器 & Node 共用）
+├── engine.js                    # 掼蛋规则引擎（浏览器 & Node 共用）
+├── doudizhu.html / .css / .js    # 斗地主页面、样式与交互
+├── doudizhu-engine.js            # 独立斗地主规则引擎
+├── pet-theme.css / .js          # 三页面共享的宠物模板与场景切换
+├── assets/pets/                  # PetVerse 复用立绘及来源说明
+├── assets/pet-garden.svg         # 轻量花园场景
+├── tests/doudizhu.test.cjs        # 斗地主规则与80局自动对局
+├── docs/verification-2026-11-08/  # 本次验收记录和截图
 ├── room.html                    # 联机房间页
 ├── room.js                      # 联机逻辑：WebRTC P2P、BGM、场景
 ├── server.cjs                   # 本地局域网服务器
@@ -95,11 +110,13 @@ CI=1 node build.js
 
 # 单独语法检查
 node --check app.js && node --check room.js && node --check engine.js
+node --check doudizhu-engine.js && node --check doudizhu.js && node --check pet-theme.js
 
-# 测试覆盖：共 43 项
+# 测试覆盖：共 54 项
+node tests/doudizhu.test.cjs       # 10 项，含80局电脑对局
 node tests/rules.test.cjs          # 23 项规则测试
 node tests/netlify-api.test.cjs    # 14 项联机接口回归
-node tests/live-server.test.cjs    # 6 项真实 HTTP 集成
+node tests/live-server.test.cjs    # 7 项真实 HTTP 集成
 ```
 
 **测试覆盖说明：**
@@ -150,7 +167,7 @@ node tests/live-server.test.cjs    # 6 项真实 HTTP 集成
 | 本地端口 | `8769`（`PORT` 环境变量可覆盖） |
 | 房间号格式 | 4 位大写字母，自动生成 |
 | BGM 默认 | 开启（`localStorage.ginaBgmOn`，仅存 `'false'` 时静音） |
-| 场景默认 | 现代暖阳会所（`localStorage.ginaScene`，`'teahouse'` 切换茶社） |
+| 场景默认 | 宠物花园（`localStorage.ginaScene`：`pets` / `modern` / `teahouse`） |
 
 ---
 
@@ -170,9 +187,17 @@ node tests/live-server.test.cjs    # 6 项真实 HTTP 集成
 主要方向：
 - 🔜 Safari / iOS 真机 BGM 验证与修复
 - 🔜 场景图预加载（消除首次切换白屏）
-- 🔜 斗地主游戏（复用房间框架）
+- 🔜 斗地主三人联网（当前已提供单机三人练习）
 - 🔜 麻将游戏
 
 ---
 
-*最后更新：2026-09-23 | v1.3.2 | GINA 牌友会*
+## 修改指南
+
+- 宠物素材：替换 `assets/pets/` 的 PNG；角色顺序与名称在 `pet-theme.js:6–7`。
+- 场景：修改 `assets/pet-garden.svg` 和 `pet-theme.css`；`pet-theme.js:10` 的 `apply` 统一更新主题、按钮与场景标签。
+- 斗地主变体：规则在 `doudizhu-engine.js:8` 的 `classify`、`:41` 的 `bid`、`:42` 的 `act`；同步更新页面规则说明和测试。渲染及电脑定时器在 `doudizhu.js`，不与掼蛋规则混用。
+- 新增文件必须加入 `build.js` 的资源和语法检查；改动后执行 `npm test` 和 `CI=1 node build.js`。
+- 纯静态页面支持 GitHub Pages 的仓库子路径部署；联机仍依赖原有 PeerJS / HTTP 服务。推送代码不等于远程部署或真机 Safari 验收完成。
+
+*最后更新：2026-11-08 | v1.4.0 | GINA 牌友会*

@@ -1097,30 +1097,7 @@ function setupEvents() {
   if ($('#btn-bgm')) $('#btn-bgm').onclick = toggleBgm;
   updateBgmUI();
 
-  // 场景风格切换
-  let currentScene = localStorage.getItem('ginaScene') || 'modern';
-  const applyScene = (scene) => {
-    currentScene = scene;
-    localStorage.setItem('ginaScene', scene);
-    const roomEl = $('.room');
-    const badgeEl = $('#room-badge');
-    const mBtn = $('#btn-scene-modern');
-    const tBtn = $('#btn-scene-teahouse');
-    if (scene === 'teahouse') {
-      roomEl?.classList.add('theme-teahouse');
-      if (badgeEl) badgeEl.textContent = '🏮 雅轩茶社 · 中古茶韵';
-      mBtn?.classList.remove('active');
-      tBtn?.classList.add('active');
-    } else {
-      roomEl?.classList.remove('theme-teahouse');
-      if (badgeEl) badgeEl.textContent = '🏙️ 暖阳会所 · 现代风格';
-      mBtn?.classList.add('active');
-      tBtn?.classList.remove('active');
-    }
-  };
-  if ($('#btn-scene-modern')) $('#btn-scene-modern').onclick = () => applyScene('modern');
-  if ($('#btn-scene-teahouse')) $('#btn-scene-teahouse').onclick = () => applyScene('teahouse');
-  applyScene(currentScene);
+/* 场景统一由 pet-theme.js 管理，避免单机与联机重复绑定。 */
 
   window.addEventListener('click', () => {
     if (bgmOn && bgm) {

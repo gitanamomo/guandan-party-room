@@ -8,6 +8,10 @@ console.log('🚀 开始GINA牌友会项目构建...');
 const requiredFiles = [
   'index.html',
   'app.js',
+  'doudizhu.html', 'doudizhu.js', 'doudizhu.css', 'doudizhu-engine.js',
+  'pet-theme.js', 'pet-theme.css', 'assets/pet-garden.svg',
+  'assets/pets/exotic-orange.png', 'assets/pets/poodle-black.png',
+  'assets/pets/sphynx-pink.png', 'assets/pets/frenchie-black.png',
   'engine.js',
   'room.html',
   'room.js',
@@ -33,7 +37,7 @@ if (missingFiles.length > 0) {
 // 从而让在线版彻底打不开。这里把语法检查纳入构建，防止再次复发。
 console.log('🔎 语法检查...');
 const { execFileSync } = require('child_process');
-const syntaxTargets = ['app.js', 'engine.js', 'room.js', 'server.cjs', 'netlify/functions/api.js'];
+const syntaxTargets = ['doudizhu-engine.js', 'doudizhu.js', 'pet-theme.js', 'app.js', 'engine.js', 'room.js', 'server.cjs', 'netlify/functions/api.js'];
 for (const f of syntaxTargets) {
   try {
     execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
@@ -58,17 +62,20 @@ const deploymentInfo = {
   netlifyProject: 'guandan-party-room',
   onlinePlayable: true,
   features: [
-    '本机 1 人对 3 电脑练习',
+    '掼蛋本机 1 人对 3 电脑练习',
+    '斗地主三人叫分与电脑对局',
+    'PetVerse 宠物花园主题',
     '线上四人房间（Netlify Function + Blobs）',
     '断线重连',
     '移动设备适配',
     'v2 暖色会所美术'
   ],
   verifiedInBuild: [
-    'app.js / engine.js / room.js / server.cjs / functions/api.js 语法检查',
-    '23 项规则边界与 40 副自动牌局测试',
-    '10 项线上房间接口回归测试',
-    '6 项真实 HTTP 集成测试'
+    '8 个 JavaScript 文件语法检查',
+    '10 项斗地主规则与 80 局自动对局测试',
+    '23 项掼蛋规则边界与 40 副自动牌局测试',
+    '14 项线上房间接口回归测试',
+    'HTTP 测试单独执行，CI 构建不启动端口'
   ]
 };
 
@@ -104,6 +111,7 @@ console.log(`✅ package.json 配置正确: ${packageJson.name} v${packageJson.v
 console.log('🧪 运行测试...');
 try {
   const { execSync } = require('child_process');
+  execSync(`"${process.execPath}" tests/doudizhu.test.cjs`, { stdio: 'inherit' });
   execSync(`"${process.execPath}" tests/rules.test.cjs`, { stdio: 'inherit' });
   execSync(`"${process.execPath}" tests/netlify-api.test.cjs`, { stdio: 'inherit' });
   if (!process.env.CF_PAGES && !process.env.CI && !process.env.VERCEL) {
