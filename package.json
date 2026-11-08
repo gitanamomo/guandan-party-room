@@ -1,7 +1,7 @@
 {
   "name": "gina-guandan-club",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "GINA 牌友会：掼蛋、宠物主题与斗地主",
   "main": "index.html",
   "scripts": {

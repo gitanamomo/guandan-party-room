@@ -215,6 +215,8 @@ function renderSeats() {
     if (!el) continue;
 
     const p = players[actSeat];
+    el.dataset.occupied = String(!!p);
+    el.dataset.finished = String(!!g && (g.finished || []).includes(actSeat));
     if (!p) {
       el.replaceChildren();
       const n = document.createElement('strong');

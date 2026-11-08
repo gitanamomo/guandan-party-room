@@ -10,6 +10,8 @@ const requiredFiles = [
   'app.js',
   'doudizhu.html', 'doudizhu.js', 'doudizhu.css', 'doudizhu-engine.js',
   'pet-theme.js', 'pet-theme.css', 'assets/pet-garden.svg',
+  'assets/cinema/guandan-four-desktop-v1.jpg', 'assets/cinema/guandan-four-mobile-v1.jpg',
+  'assets/cinema/doudizhu-three-desktop-v1.jpg', 'assets/cinema/doudizhu-three-mobile-v1.jpg',
   'assets/pets/exotic-orange.png', 'assets/pets/poodle-black.png',
   'assets/pets/sphynx-pink.png', 'assets/pets/frenchie-black.png',
   'engine.js',

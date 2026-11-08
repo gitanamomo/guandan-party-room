@@ -1,0 +1,16 @@
+/* Screenshot fixtures complement real-game browser-smoke; long-play fixture is presentation-only. */
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs');
+const BASE=process.env.TEST_BASE||'http://127.0.0.1:8778';
+fs.mkdirSync('docs/visual-v15/verification',{recursive:true});
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});const errors=[];
+for(const width of [1440,390]){const ctx=await browser.newContext({viewport:{width,height:1000}}),p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));
+await p.goto(BASE+'/doudizhu.html');await p.waitForLoadState('networkidle');
+await p.evaluate(()=>{clearTimeout(timer);game=DDZ.newGame(()=>0);DDZ.bid(game,0,3);selected.clear();render();clearTimeout(timer);});
+await p.locator('#suggest').click();assert(await p.locator('#hand [aria-pressed=true]').count()>0);await p.evaluate(()=>scrollTo(0,0));await p.waitForTimeout(100);await p.screenshot({path:`docs/visual-v15/verification/selected-${width}.png`,fullPage:true});
+await p.evaluate(()=>{clearTimeout(timer);const cs=DDZ.deck().filter(c=>c.r>=3&&c.r<=7&&c.s!=='♦').concat(DDZ.deck().filter(c=>c.r>=8&&c.r<=12&&c.s==='♠'));game.top={seat:1,cards:cs,p:DDZ.classify(cs)};game.turn=0;selected.clear();render();clearTimeout(timer);});
+await p.waitForTimeout(150);const rects=await p.locator('.felt-played').evaluate(el=>{const a=el.getBoundingClientRect(),b=el.querySelector('#table-cards').getBoundingClientRect();return {a:{x:a.x,y:a.y,right:a.right,bottom:a.bottom},b:{x:b.x,y:b.y,right:b.right,bottom:b.bottom}};});assert(rects.b.bottom<=rects.a.bottom+2,'long play overflows felt');assert(rects.b.right<=rects.a.right+2,'long play exceeds felt width');
+await p.evaluate(()=>scrollTo(0,0));await p.waitForTimeout(100);await p.screenshot({path:`docs/visual-v15/verification/long-play-fixture-${width}.png`,fullPage:true});
+await p.evaluate(()=>{clearTimeout(timer);game=DDZ.newGame();DDZ.bid(game,game.turn,3);let n=0;while(game.phase==='play'&&n++<600)DDZ.bot(game,game.turn);selected.clear();render();clearTimeout(timer);});assert(await p.locator('#summary').isVisible());assert.equal(await p.locator('.seat.active').count(),0);await p.evaluate(()=>scrollTo(0,0));await p.waitForTimeout(100);await p.screenshot({path:`docs/visual-v15/verification/result-${width}.png`,fullPage:true});
+await p.goto(BASE+'/index.html');await p.waitForLoadState('networkidle');await p.evaluate(()=>{clearTimeout(timer);game=GD.newGame();for(let n=0;n<50&&game.turn!==0;n++)game=GD.newGame();selected.clear();render();clearTimeout(timer);});await p.locator('#suggest').click();assert(await p.locator('#hand [aria-pressed=true]').count()>0);await p.evaluate(()=>scrollTo(0,0));await p.waitForTimeout(100);await p.screenshot({path:`docs/visual-v15/verification/guandan-selected-${width}.png`,fullPage:true});
+console.log(`PASS ${width}px: selected cards, 20-card airplane fixture contained, game-over state, Guandan selection`);await ctx.close();}
+await browser.close();assert.deepEqual(errors,[]);})().catch(e=>{console.error(e);process.exit(1)});

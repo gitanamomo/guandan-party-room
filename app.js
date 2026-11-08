@@ -33,6 +33,7 @@ return game.top?'轮到，可压牌或不要':'轮到，领出，不能不要';
 /* ---- 座位区：strong/span/em/chip 只建一次，之后只改 textContent ---- */
 function renderSeats(){for(let i=0;i<4;i++){const el=$('#seat'+i);if(!seatEls[i]){const n=document.createElement('strong'),c=document.createElement('span'),em=document.createElement('em'),chip=document.createElement('span');chip.className='turn-chip';chip.setAttribute('aria-hidden','true');el.replaceChildren(n,c,em,chip);seatEls[i]={n,c,em,chip};}
 const s=seatEls[i],place=game.finished.indexOf(i),last=game.last[i];
+el.dataset.finished=String(place>=0);el.dataset.occupied='true';
 s.n.textContent=names[i]+(i===2?' · 队友':'');
 s.c.textContent=place>=0?(game.result?.double&&place>1?'双下':['头游','二游','三游','末游'][place]):`余 ${game.hands[i].length} 张`;
 s.em.textContent=last?(last.pass?'不要':last.p.type):i%2===0?'青松队':'暖阳队';

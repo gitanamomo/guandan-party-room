@@ -1,6 +1,6 @@
 # GINA 牌友会 · 掼蛋与宠物斗地主
 
-> 纯前端棋牌游戏：掼蛋单机 / 四人联机、斗地主三人单机练习；新增 PetVerse 宠物花园模板。
+> 纯前端棋牌游戏：掼蛋单机 / 四人联机、斗地主三人单机练习；新增 PetVerse 拟人宠物森光会所模板。
 > 无第三方框架，无构建工具，打开即玩。
 
 ![暖阳会所场景](assets/guandan-club-v2.jpg)
@@ -10,6 +10,19 @@
 **📦 仓库**：https://github.com/gitanamomo/guandan-party-room
 
 ---
+
+## v1.5.0 · 森光会所视觉重建（2026-11-08）
+
+按用户确认的「精致 3D 动画电影感」重做画面。先审核旧版构图，再制作拟人角色与完整场景，最后落地并逐屏验收。
+
+- **拟人角色**：四足贴图改为穿衣、坐椅、用爪持牌的宠物角色；保留 PetVerse 品种特征。
+- **匹配视角**：掼蛋四席与斗地主三席分别构图，角色、桌面、椅子、光照和接触阴影统一。
+- **四张正式美术**：每个玩法各有横版、竖版，手机端使用专门构图，保留全部角色。
+- **统一游戏界面**：顶部比分、完整场景、纸牌、操作条连成整体；绒面、木纹、纸牌厚度、选中抬升和按钮质感同步升级。
+- **动态状态**：行动标记、地主身份、已走完、余牌与结算由真实牌局状态显示；长牌型在手机安全区域内排版。
+- **保留旧版**：v1.4 位于 Git 提交 `64935d3`；旧素材不覆盖，经典会所/茶社仍可切换。
+
+[审核与规划](docs/visual-v15/PLAN.md) · [改动及验收](docs/visual-v15/README.md) · [美术与提示词](docs/visual-v15/PROMPTS.md)
 
 ## v1.4.0（2026-11-08）新增
 
@@ -56,7 +69,7 @@ node server.cjs          # 默认端口 8769
 
 | 控件 | 功能 |
 |------|------|
-| `🐾 宠物花园` / `🏙️ 暖阳会所` / `🍵 雅轩茶社` | 同步切换宠物主角、花园环境或原有背景 |
+| `森光宠物会所` / `🏙️ 暖阳会所` / `🍵 雅轩茶社` | 切换正式拟人宠物场景或原有经典背景 |
 | `🎵 音乐：开/关` | 开关国风竹笛古筝背景音乐 |
 
 - 音乐**默认开启**，首次点击页面（出牌、选牌等）即自动播放
@@ -74,7 +87,10 @@ node server.cjs          # 默认端口 8769
 ├── doudizhu.html / .css / .js    # 斗地主页面、样式与交互
 ├── doudizhu-engine.js            # 独立斗地主规则引擎
 ├── pet-theme.css / .js          # 三页面共享的宠物模板与场景切换
-├── assets/pets/                  # PetVerse 复用立绘及来源说明
+├── assets/cinema/                # 四张正式拟人场景及来源说明
+├── docs/visual-v15/              # 视觉审核、计划、提示词、验收截图
+├── tests/visual-states.cjs        # 选牌、长牌型、结算的专项视觉检查
+├── assets/pets/                  # 原 PetVerse 立绘与身份参考
 ├── assets/pet-garden.svg         # 轻量花园场景
 ├── tests/doudizhu.test.cjs        # 斗地主规则与80局自动对局
 ├── docs/verification-2026-11-08/  # 本次验收记录和截图
@@ -87,7 +103,7 @@ node server.cjs          # 默认端口 8769
 ├── tests/
 │   ├── rules.test.cjs           # 规则边界测试（23 项）
 │   ├── netlify-api.test.cjs     # 联机接口回归测试（14 项）
-│   └── live-server.test.cjs    # 真实 HTTP 集成测试（6 项）
+│   └── live-server.test.cjs    # 真实 HTTP 集成测试（7 项）
 ├── assets/
 │   ├── bgm.mp3                  # 国风背景音乐（竹笛古筝电音，1.8MB）
 │   ├── guandan-club-v2.jpg      # 现代暖阳会所场景（497KB，主用）
@@ -167,7 +183,7 @@ node tests/live-server.test.cjs    # 7 项真实 HTTP 集成
 | 本地端口 | `8769`（`PORT` 环境变量可覆盖） |
 | 房间号格式 | 4 位大写字母，自动生成 |
 | BGM 默认 | 开启（`localStorage.ginaBgmOn`，仅存 `'false'` 时静音） |
-| 场景默认 | 宠物花园（`localStorage.ginaScene`：`pets` / `modern` / `teahouse`） |
+| 场景默认 | 森光宠物会所（`localStorage.ginaScene`：`pets` / `modern` / `teahouse`） |
 
 ---
 
@@ -194,10 +210,13 @@ node tests/live-server.test.cjs    # 7 项真实 HTTP 集成
 
 ## 修改指南
 
-- 宠物素材：替换 `assets/pets/` 的 PNG；角色顺序与名称在 `pet-theme.js:6–7`。
-- 场景：修改 `assets/pet-garden.svg` 和 `pet-theme.css`；`pet-theme.js:10` 的 `apply` 统一更新主题、按钮与场景标签。
-- 斗地主变体：规则在 `doudizhu-engine.js:8` 的 `classify`、`:41` 的 `bid`、`:42` 的 `act`；同步更新页面规则说明和测试。渲染及电脑定时器在 `doudizhu.js`，不与掼蛋规则混用。
-- 新增文件必须加入 `build.js` 的资源和语法检查；改动后执行 `npm test` 和 `CI=1 node build.js`。
-- 纯静态页面支持 GitHub Pages 的仓库子路径部署；联机仍依赖原有 PeerJS / HTTP 服务。推送代码不等于远程部署或真机 Safari 验收完成。
+- 场景原图与身份参考：见 `assets/cinema/README.md`，提示词在 `docs/visual-v15/PROMPTS.md`。替换时新增版本文件名，保留旧版。
+- 共用视觉：`pet-theme.css` 按界面、状态牌、动态牌区、纸牌、移动端分段；三/四人及横/竖版场景在 `.room.theme-pets` 规则中切换。
+- 控制器：`pet-theme.js` 的 `apply(scene)` 管主题；`decorate()` 标注座位、纸牌及长牌型。不要将页面级 `data-scene` 与 `button[data-scene]` 的按钮选择器混用。
+- 斗地主：`doudizhu.css` 只保留结构基础，正式视觉统一在 `pet-theme.css`，避免两套座位定位覆盖。
+- 状态：`app.js` / `room.js` / `doudizhu.js` 标注真实完成、入座和地主身份；规则仍在各自引擎中。
+- 复查：`npm test`、`CI=1 node build.js`；浏览器可执行 `tests/browser-smoke.cjs` 和 `tests/visual-states.cjs`（需 Playwright / Chromium、启动本地 8778 端口）。
+- 必须人工打开桌面、手机、选牌、长牌型和结算截图审核。自动测试通过不能代替美术验收。
+- 纯静态页面支持 GitHub Pages 子路径；掼蛋联机使用原有 PeerJS / HTTP 服务。Safari / iPhone 真机与远程部署应单独验收。
 
-*最后更新：2026-11-08 | v1.4.0 | GINA 牌友会*
+*最后更新：2026-11-08 | v1.5.0 | GINA 牌友会*
